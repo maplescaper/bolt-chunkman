@@ -1,0 +1,2 @@
+# Release build artifact (uploaded to GitHub Releases, not committed)
+*.tar.gz

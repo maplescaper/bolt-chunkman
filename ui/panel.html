@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: rgba(20, 18, 13, 0.96);
+    --panel: rgba(34, 30, 21, 0.96);
+    --row: rgba(255, 255, 255, 0.03);
+    --line: rgba(255, 200, 90, 0.18);
+    --gold: #ffce5a;
+    --text: #ece5d4;
+    --muted: #a89e86;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: transparent;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    color: var(--text);
+    -webkit-user-select: none; user-select: none;
+  }
+  #wrap {
+    display: flex; flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  }
+  header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(70, 56, 28, 0.95), rgba(40, 33, 19, 0.95));
+    border-bottom: 1px solid var(--line);
+    cursor: move;
+  }
+  header h1 {
+    flex: 1; margin: 0;
+    font-size: 14px; font-weight: 600; letter-spacing: .3px;
+    color: var(--gold);
+  }
+  .hbtn {
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 12px;
+    padding: 4px 9px;
+    cursor: pointer;
+  }
+  .hbtn:hover { border-color: var(--gold); color: var(--gold); }
+  #close { font-size: 15px; line-height: 1; padding: 4px 8px; }
+  #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
+  #body::-webkit-scrollbar { width: 9px; }
+  #body::-webkit-scrollbar-thumb { background: rgba(255, 200, 90, 0.25); border-radius: 5px; }
+  .group-title {
+    margin: 14px 0 6px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--gold); opacity: .85;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4px;
+  }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 8px;
+    border-radius: 7px;
+    background: var(--row);
+    margin-bottom: 5px;
+  }
+  .row label.name { flex: 1; font-size: 13px; }
+  .ctl { display: flex; align-items: center; gap: 8px; }
+  .val { min-width: 46px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* toggle switch */
+  .switch { position: relative; width: 40px; height: 22px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; cursor: pointer;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 22px; transition: background .15s;
+  }
+  .slider::before {
+    content: ""; position: absolute; height: 16px; width: 16px;
+    left: 3px; top: 3px; background: #ddd; border-radius: 50%;
+    transition: transform .15s;
+  }
+  .switch input:checked + .slider { background: var(--gold); }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: #2a2415; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 120px; height: 4px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.18); outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--gold); cursor: pointer;
+  }
+  input[type=color] {
+    -webkit-appearance: none; appearance: none;
+    width: 30px; height: 24px; padding: 0; border: 1px solid var(--line);
+    border-radius: 5px; background: none; cursor: pointer;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 2px; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 3px; }
+  input[type=text].text {
+    width: 150px; padding: 4px 7px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--line); border-radius: 5px;
+    color: var(--text); font-size: 12px;
+    font-variant-numeric: tabular-nums; outline: none;
+  }
+  input[type=text].text:focus { border-color: var(--gold); }
+  input[type=text].text::placeholder { color: var(--muted); opacity: .7; }
+  #empty { color: var(--muted); font-size: 12px; padding: 20px; text-align: center; }
+</style>
+<script>
+  // Scale the page content to match the (scaled) browser rectangle.
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) document.documentElement.style.zoom = s;
+  })();
+</script>
+</head>
+<body>
+  <div id="wrap">
+    <header id="drag">
+      <h1>Chunk Man &mdash; Settings</h1>
+      <button class="hbtn" id="reset" title="Restore defaults">Reset</button>
+      <button class="hbtn" id="close" title="Close">&times;</button>
+    </header>
+    <div id="body"><div id="empty">Loading settings&hellip;</div></div>
+  </div>
+
+  <script>
+    const api = (body) => fetch("https://bolt-api/send-message", { method: "POST", body });
+    const controls = {}; // key -> { read() }
+
+    function setVal(key, value) {
+      // value formats: bool -> "true"/"false", number -> string,
+      // rgb -> "#rrggbb", rgba -> "#rrggbb,<alpha>"
+      api("set\n" + key + "\n" + value);
+    }
+
+    function makeRow(parent, e) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("label");
+      name.className = "name";
+      name.textContent = e.label;
+      row.appendChild(name);
+      const ctl = document.createElement("div");
+      ctl.className = "ctl";
+      row.appendChild(ctl);
+      parent.appendChild(row);
+      return ctl;
+    }
+
+    function buildBool(ctl, e) {
+      const sw = document.createElement("label");
+      sw.className = "switch";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      const sp = document.createElement("span");
+      sp.className = "slider";
+      sw.appendChild(input); sw.appendChild(sp);
+      ctl.appendChild(sw);
+      input.addEventListener("change", () => setVal(e.key, input.checked ? "true" : "false"));
+      controls[e.key] = { set: (v) => { input.checked = !!v; } };
+    }
+
+    function buildNumber(ctl, e) {
+      const range = document.createElement("input");
+      range.type = "range";
+      range.min = e.min; range.max = e.max; range.step = e.step;
+      const out = document.createElement("span");
+      out.className = "val";
+      const fmt = (v) => (e.type === "int" ? String(Math.round(v)) : String(v));
+      range.addEventListener("input", () => { out.textContent = fmt(range.value); });
+      range.addEventListener("change", () => setVal(e.key, range.value));
+      ctl.appendChild(range); ctl.appendChild(out);
+      controls[e.key] = { set: (v) => { range.value = v; out.textContent = fmt(v); } };
+    }
+
+    function buildText(ctl, e) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "text";
+      if (e.placeholder) input.placeholder = e.placeholder;
+      // commit on change/blur and on Enter
+      const push = () => setVal(e.key, input.value);
+      input.addEventListener("change", push);
+      input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") input.blur(); });
+      ctl.appendChild(input);
+      controls[e.key] = { set: (v) => { input.value = v == null ? "" : v; } };
+    }
+
+    function buildRgb(ctl, e) {
+      const color = document.createElement("input");
+      color.type = "color";
+      color.addEventListener("input", () => setVal(e.key, color.value));
+      ctl.appendChild(color);
+      controls[e.key] = { set: (v) => { color.value = v; } };
+    }
+
+    function buildRgba(ctl, e) {
+      const color = document.createElement("input");
+      color.type = "color";
+      const alpha = document.createElement("input");
+      alpha.type = "range";
+      alpha.min = 0; alpha.max = 1; alpha.step = 0.05;
+      alpha.style.width = "84px";
+      const out = document.createElement("span");
+      out.className = "val";
+      const push = () => setVal(e.key, color.value + "," + alpha.value);
+      const showA = () => { out.textContent = Math.round(alpha.value * 100) + "%"; };
+      color.addEventListener("input", push);
+      alpha.addEventListener("input", showA);
+      alpha.addEventListener("change", push);
+      ctl.appendChild(color); ctl.appendChild(alpha); ctl.appendChild(out);
+      controls[e.key] = { set: (v) => { color.value = v.c; alpha.value = v.a; showA(); } };
+    }
+
+    function buildForm(schema, values) {
+      const body = document.getElementById("body");
+      body.innerHTML = "";
+      let lastGroup = null;
+      for (const e of schema) {
+        if (e.group !== lastGroup) {
+          lastGroup = e.group;
+          const g = document.createElement("div");
+          g.className = "group-title";
+          g.textContent = e.group;
+          body.appendChild(g);
+        }
+        const ctl = makeRow(body, e);
+        if (e.type === "bool") buildBool(ctl, e);
+        else if (e.type === "int" || e.type === "float") buildNumber(ctl, e);
+        else if (e.type === "text") buildText(ctl, e);
+        else if (e.type === "rgb") buildRgb(ctl, e);
+        else if (e.type === "rgba") buildRgba(ctl, e);
+      }
+      applyValues(values);
+    }
+
+    function applyValues(values) {
+      for (const key in values) {
+        if (controls[key]) controls[key].set(values[key]);
+      }
+    }
+
+    window.addEventListener("message", (event) => {
+      if (typeof event.data !== "object" || !event.data) return;
+      if (event.data.type !== "pluginMessage") return;
+      let msg;
+      try { msg = JSON.parse(new TextDecoder().decode(event.data.content)); }
+      catch (err) { return; }
+      if (msg.type === "init") buildForm(msg.schema, msg.values);
+      else if (msg.type === "values") applyValues(msg.values);
+    });
+
+    document.getElementById("close").addEventListener("click", () => {
+      fetch("https://bolt-api/close-request");
+    });
+    document.getElementById("reset").addEventListener("click", () => api("reset"));
+
+    // drag the panel by its header
+    const drag = document.getElementById("drag");
+    drag.addEventListener("mousedown", (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target.closest(".hbtn")) return; // let header buttons work
+      fetch("https://bolt-api/start-reposition?h=0&v=0");
+    });
+
+    window.addEventListener("DOMContentLoaded", () => api("ready"));
+  </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: transparent; overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    cursor: pointer;
+  }
+  #btn {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 200, 90, 0.55);
+    background: radial-gradient(circle at 50% 35%, rgba(60, 48, 24, 0.92), rgba(24, 20, 12, 0.94));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+    transition: transform .08s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+  #btn:hover {
+    border-color: rgba(255, 215, 120, 0.95);
+    box-shadow: 0 0 10px rgba(255, 190, 80, 0.55);
+  }
+  #btn:active { transform: scale(0.92); }
+  svg { width: 64%; height: 64%; display: block; }
+  .gear { fill: #ffce5a; }
+</style>
+<script>
+  // Scale the page content to match the (scaled) browser rectangle. The Lua
+  // side appends ?s=<uiScale> and sizes the browser by the same factor.
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) document.documentElement.style.zoom = s;
+  })();
+</script>
+</head>
+<body>
+  <div id="btn" title="Chunk Man settings">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path class="gear" d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.03 7.03 0 0 0-1.69-.98l-.38-2.65A.5.5 0 0 0 13.6 1h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.14.24.42.32.61.22l2.49-1c.52.39 1.08.73 1.69.98l.38 2.65c.05.24.25.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.24.09.5 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/>
+    </svg>
+  </div>
+  <script>
+    document.getElementById("btn").addEventListener("click", function () {
+      fetch("https://bolt-api/send-message", { method: "POST", body: "toggle" });
+    });
+  </script>
+</body>
+</html>

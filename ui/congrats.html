@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: transparent; overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    pointer-events: none;
+  }
+  #stage {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #card {
+    position: relative;
+    text-align: center;
+    padding: 26px 48px 30px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 206, 90, 0.7);
+    background: radial-gradient(circle at 50% 25%, rgba(74, 58, 26, 0.96), rgba(26, 21, 12, 0.97));
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 60px rgba(255, 206, 90, 0.25);
+    color: #ece5d4;
+    transform: scale(0.6);
+    opacity: 0;
+    animation: pop 0.45s cubic-bezier(0.18, 1.5, 0.4, 1) forwards;
+  }
+  #card.out { animation: fade 0.5s ease forwards; }
+  @keyframes pop {
+    0%   { transform: scale(0.6);  opacity: 0; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  @keyframes fade {
+    0%   { transform: scale(1);    opacity: 1; }
+    100% { transform: scale(1.08); opacity: 0; }
+  }
+  #title {
+    font-size: 40px; font-weight: 800; line-height: 1.1;
+    background: linear-gradient(180deg, #fff2c8, #ffce5a 60%, #e0a020);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+  #sub {
+    margin-top: 10px;
+    font-size: 16px; color: #d8cfb5;
+  }
+  #sub b {
+    color: #ffce5a;
+    font-variant-numeric: tabular-nums;
+    font-size: 22px;
+  }
+  #region { margin-top: 4px; font-size: 12px; color: #a89e86; letter-spacing: .5px; }
+
+  /* sparkles */
+  .spark {
+    position: absolute; top: 50%; left: 50%;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #ffce5a;
+    box-shadow: 0 0 8px rgba(255, 206, 90, 0.9);
+    opacity: 0;
+    animation: burst 0.9s ease-out forwards;
+  }
+  @keyframes burst {
+    0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
+  }
+</style>
+<script>
+  // Scale the page content to match the (scaled) browser rectangle.
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) document.documentElement.style.zoom = s;
+  })();
+</script>
+</head>
+<body>
+  <div id="stage">
+    <div id="card">
+      <div id="title">Chunk Unlocked!</div>
+      <div id="sub">You unlocked chunk <b id="chunkId">&mdash;</b></div>
+      <div id="region"></div>
+    </div>
+  </div>
+  <script>
+    const card = document.getElementById("card");
+    const idEl = document.getElementById("chunkId");
+    const regionEl = document.getElementById("region");
+
+    function sparkle() {
+      const n = 14;
+      for (let i = 0; i < n; i++) {
+        const s = document.createElement("div");
+        s.className = "spark";
+        const ang = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+        const dist = 90 + Math.random() * 70;
+        s.style.setProperty("--dx", Math.cos(ang) * dist + "px");
+        s.style.setProperty("--dy", Math.sin(ang) * dist + "px");
+        s.style.animationDelay = (Math.random() * 0.15) + "s";
+        card.appendChild(s);
+      }
+    }
+
+    function show(msg) {
+      idEl.textContent = msg.id;
+      regionEl.textContent = "region " + msg.rx + ", " + msg.rz;
+      // restart the pop animation in case the card is being reused
+      card.classList.remove("out");
+      card.style.animation = "none";
+      void card.offsetWidth;
+      card.style.animation = "";
+      sparkle();
+      // hold, then fade out and ask Lua to close us
+      setTimeout(() => { card.classList.add("out"); }, 2600);
+      setTimeout(() => { fetch("https://bolt-api/close-request"); }, 3200);
+    }
+
+    window.addEventListener("message", (event) => {
+      if (typeof event.data !== "object" || !event.data) return;
+      if (event.data.type !== "pluginMessage") return;
+      let msg;
+      try { msg = JSON.parse(new TextDecoder().decode(event.data.content)); }
+      catch (err) { return; }
+      if (msg.type === "congrats") show(msg);
+    });
+
+    window.addEventListener("DOMContentLoaded", () => {
+      fetch("https://bolt-api/send-message", { method: "POST", body: "ready" });
+    });
+  </script>
+</body>
+</html>
