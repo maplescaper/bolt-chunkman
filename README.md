@@ -94,6 +94,7 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 | --- | --- | --- |
 | **Unlocked Chunks** | Grey out locked chunks | Wall off everything except your unlocked chunks. |
 | | Unlocked chunk IDs | Comma-separated list of chunk IDs, e.g. `13108, 13109`. |
+| | Enable overworld detection | If enabled, the plugin will attempt to detect if you are in the overworld or dungeon. |
 | | Overworld box corner chunk ID (SW) | Minimum chunk number from southwestern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Overworld box corner chunk ID (NE) | Maximum chunk number from northeastern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Ctrl+Alt+middle-click to unlock/lock | Toggle a chunk by clicking it on the ground. |
@@ -124,6 +125,18 @@ Alternatively, get a CSV list of the chunk IDs and add those to the `unlockedChu
 `chunkman-settings.cfg` file found in the plugins config directory (usually `%AppData%\bolt-launcher\config\plugins`
 on Windows. **Make sure to backup your config file! If you ever delete the plugin, your unlocked chunks will also be 
 removed.**
+
+Note that **if you've unlocked chunks in Anachronia, the Arc Islands (Waiko, Goshima, etc.), or Havenhythe, these chunk IDs map
+differently** than the main world and don't use the same IDs in the plugin as in the chunk picker. The bounding square map for
+these are the following:
+
+| Region | Bolt | Chunk Picker | Difference to Add/Subtract |
+| --- | --- | --- | --- |
+| Arc Islands | S/W: 7085   N/E: 10427 | S/W: 14870   N/E: 18212 | 7785 (Subtract) |
+| Anachronia | S/W: 20512   N/E: 22824 | S/W: 14655   N/E: 16967 | 5857 (Add) |
+| Havenhythe | S/W: 13332   N/E: 14876 | S/W: 16176   N/E: 17720 | 2844 (Subtract) |
+
+It seems to be possible to add/subtract the difference between the S/W chunk IDs to map from the chunk picker to the plugin.
 
 ### Chunk ID source
 

@@ -29,7 +29,10 @@ local CHUNKS_PER_AXIS = 256       -- chunk ID = regionX * 256 + regionZ
 local GRID_STEP_TILES = 8        -- boundary subdivision (for clipping behind camera)
 local GROUND_REFRESH_FRAMES = 30
 local GROUND_MAX_SAMPLES = 200
-local SETTINGS_FILE = "chunkman-settings.cfg"
+local LEGACY_SETTINGS_FILE = "chunkman-settings.cfg"  -- old shared (all-account) file; migrated per-character on first load
+-- The active settings file. Resolved per-character (see resolveSettingsFile);
+-- until a character is known it points at the legacy shared file.
+local SETTINGS_FILE = LEGACY_SETTINGS_FILE
 -- ======================================================================
 
 -- ====================== Adjustable settings (defaults) =================
@@ -38,7 +41,7 @@ local SETTINGS_FILE = "chunkman-settings.cfg"
 local DEFAULTS = {
     -- grey out the whole world EXCEPT a hand-picked list of "unlocked" chunks
     greyLocked = true,                                 -- grey everything but the unlocked chunks listed below
-    overworldOnlyLocks = true,                         -- only grey/dim while in the overworld (off in dungeons/instances)
+    overworldDetection = true,                         -- master switch: detect the overworld at all (off => treat everywhere as overworld)
     overworldMinChunkId = 7446,                        -- one corner of the overworld region box (SW)
     overworldMaxChunkId = 18247,                       -- opposite corner of the overworld region box (NE)
     unlockedChunkIds = "",                             -- comma-separated unlocked chunk IDs, e.g. "13108, 13109"
@@ -84,7 +87,7 @@ local cfg = deepcopy(DEFAULTS)
 -- type: "bool" | "int" | "float" | "rgb" | "rgba"
 local SCHEMA = {
     { key = "greyLocked",          type = "bool",  group = "Unlocked Chunks",    label = "Grey out locked chunks" },
-    { key = "overworldOnlyLocks",  type = "bool",  group = "Unlocked Chunks",    label = "Only grey out in the overworld (not in dungeons)" },
+    { key = "overworldDetection",  type = "bool",  group = "Unlocked Chunks",    label = "Enable overworld detection" },
     { key = "overworldMinChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (SW)", min = 0, max = 65535, step = 1 },
     { key = "overworldMaxChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (NE)", min = 0, max = 65535, step = 1 },
     { key = "unlockedChunkIds",    type = "text",  group = "Unlocked Chunks",    label = "Unlocked chunk IDs", placeholder = "e.g. 13108, 13109" },
@@ -244,13 +247,38 @@ local LEGACY_KEYS = {
     greyColour   = "lockedColour",
     greyWallHeight = "lockedWallHeight",
 }
-local function loadSettings()
-    local data = bolt.loadconfig(SETTINGS_FILE)
-    if not data then return end
+local function applySettingsData(data)
+    if not data then return false end
     for line in data:gmatch("[^\r\n]+") do
         local k, v = line:match("^([^=]+)=(.*)$")
         if k then applySet(LEGACY_KEYS[k] or k, v) end
     end
+    return true
+end
+local function loadSettings()
+    -- Per-character file first; if the character has none yet, seed (migrate)
+    -- from the old shared file so existing setups carry over. From then on each
+    -- character saves to its own file, so settings no longer leak across
+    -- accounts.
+    if applySettingsData(bolt.loadconfig(SETTINGS_FILE)) then return end
+    if SETTINGS_FILE ~= LEGACY_SETTINGS_FILE then
+        applySettingsData(bolt.loadconfig(LEGACY_SETTINGS_FILE))
+    end
+end
+
+-- Resolve SETTINGS_FILE to the current character's file. bolt.characterid() is
+-- a stable, unique, alphanumeric id that isn't available until a character is
+-- logged in, so this is re-checked each frame until it resolves. Returns true
+-- when the active file changed (i.e. caller should (re)load).
+local loadedCharId = nil
+local function resolveSettingsFile()
+    local ok, id = pcall(bolt.characterid)
+    if not ok or not id or id == "" then return false end
+    id = tostring(id):gsub("[^%w]", "")
+    if id == "" or id == loadedCharId then return false end
+    loadedCharId = id
+    SETTINGS_FILE = "chunkman-settings-" .. id .. ".cfg"
+    return true
 end
 local function resetDefaults()
     cfg = deepcopy(DEFAULTS)
@@ -281,21 +309,44 @@ local function rebuildGreyChunks()
     keepRegions, keepSet = list, set
 end
 
--- Is the player currently in the overworld? The overworld is the rectangular
--- box of regions whose opposite corners are the two configured chunk IDs (each
--- chunk ID = regionX*256 + regionZ, so it decodes to a region X/Z). A region is
--- in the overworld when its X and Z both fall inside that box; dungeons,
--- instances and other off-map areas fall outside it. While outside, we suppress
--- the locked-chunk grey-out entirely, so nothing is greyed in a dungeon. With
--- the gate disabled, locks apply everywhere (the previous behaviour).
-local function isOverworld(prx, prz)
-    if not cfg.overworldOnlyLocks then return true end
-    local lo, hi = cfg.overworldMinChunkId, cfg.overworldMaxChunkId
+-- Additional overworld region boxes beyond the configured primary one. Each
+-- entry is a { SW chunk ID, NE chunk ID } pair (same encoding: regionX*256 +
+-- regionZ). Some overworld areas sit outside the main box, so they're listed
+-- here so the locked-chunk grey-out still applies there.
+local EXTRA_OVERWORLD_BOXES = {
+    { 7085, 10427 },
+    { 20512, 22824 },
+    { 13332, 14876 },
+}
+
+-- True if region (prx, prz) falls inside the box whose opposite corners are the
+-- two given chunk IDs.
+local function regionInBox(prx, prz, lo, hi)
     local rxA, rzA = math.floor(lo / CHUNKS_PER_AXIS), lo % CHUNKS_PER_AXIS
     local rxB, rzB = math.floor(hi / CHUNKS_PER_AXIS), hi % CHUNKS_PER_AXIS
     if rxA > rxB then rxA, rxB = rxB, rxA end
     if rzA > rzB then rzA, rzB = rzB, rzA end
     return prx >= rxA and prx <= rxB and prz >= rzA and prz <= rzB
+end
+
+-- Is the player currently in the overworld? The overworld is made up of one or
+-- more rectangular boxes of regions, each defined by two opposite-corner chunk
+-- IDs (each chunk ID = regionX*256 + regionZ, so it decodes to a region X/Z).
+-- The primary box comes from the configured corners; additional boxes are listed
+-- in EXTRA_OVERWORLD_BOXES. A region is in the overworld when it falls inside any
+-- of these boxes; dungeons, instances and other off-map areas fall outside them
+-- all. While outside, we suppress the locked-chunk grey-out entirely, so nothing
+-- is greyed in a dungeon. With the gate disabled, locks apply everywhere (the
+-- previous behaviour).
+local function isOverworld(prx, prz)
+    if not cfg.overworldDetection then return true end
+    if regionInBox(prx, prz, cfg.overworldMinChunkId, cfg.overworldMaxChunkId) then
+        return true
+    end
+    for _, box in ipairs(EXTRA_OVERWORLD_BOXES) do
+        if regionInBox(prx, prz, box[1], box[2]) then return true end
+    end
+    return false
 end
 
 loadSettings()
@@ -828,6 +879,14 @@ end)
 
 local snap = 0
 bolt.onswapbuffers(function(event)
+    -- Once a character is logged in, switch to that character's settings file and
+    -- (re)load it, so settings are kept per-account instead of shared.
+    if resolveSettingsFile() then
+        resetDefaults()
+        loadSettings()
+        rebuildGreyChunks()
+    end
+
     frameCount = frameCount + 1
     doGroundScan = (frameCount % GROUND_REFRESH_FRAMES == 0)
     terrainScannedThisFrame = false
