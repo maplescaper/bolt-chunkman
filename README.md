@@ -42,6 +42,8 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 | --- | --- | --- |
 | **Unlocked Chunks** | Grey out locked chunks | Wall off everything except your unlocked chunks. |
 | | Unlocked chunk IDs | Comma-separated list of chunk IDs, e.g. `13108, 13109`. |
+| | Overworld box corner chunk ID (SW) | Minimum chunk number from southwestern-most chunk (for detecting overworld vs dungeons, etc.). |
+| | Overworld box corner chunk ID (NE) | Maximum chunk number from northeastern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Ctrl+Alt+middle-click to unlock/lock | Toggle a chunk by clicking it on the ground. |
 | | Dim the view when in a locked chunk | Tint the whole screen when you're out of bounds. |
 | | Locked-chunk colour & opacity | Curtain / dim colour and strength. |
@@ -58,13 +60,21 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 | **Interface** | UI scale | Scale the on-screen UI (icon, badge, panel, popup). |
 | **Diagnostics** | Write diag.txt | Periodically dump diagnostics for troubleshooting. |
 
-## How chunk IDs work
+## Chunks
 
-A region is 64×64 tiles, anchored at absolute tile `0`, so region edges fall on every tile
-coordinate divisible by 64. A chunk's ID seems to follow `regionX * 256 + regionZ`. The badge in the
-top-left always shows the ID of the chunk you're standing in, so the easiest way to build
-your unlocked list is to just walk into a chunk and read the number — or `Ctrl+Alt+middle-click`
-it to add it directly.
+### Adding existing chunks
+
+There are two ways to do this. Either go through the world, and add your known unlocked chunks with `Ctrl+Alt+middle-click`
+by clicking anywhere in the chunk.
+
+Alternatively, get a CSV list of the chunk IDs and add those to the `unlockedChunkIds` variable in the
+`chunkman-settings.cfg` file found in the plugins config directory (usually `%AppData%\bolt-launcher\config\plugins`
+on Windows.
+
+### Chunk ID source
+
+These chunk IDs map to the chunk picker IDs [found here](https://github.com/source-chunk/chunk-picker-rs3). If this
+updates before this plugin, then use the `Overworld box corner` settings to adjust the plugin overworld detection.
 
 ## Installation
 
@@ -90,7 +100,7 @@ in `meta.json`, Bolt offers the update automatically.
 
 1. Locate your Bolt plugins directory (on Windows this is typically
    `%AppData%\bolt-launcher\data\plugins`).
-2. Copy this repository's plugin files into a folder there, e.g. `chunk-man-plugin`, so that
+2. Copy this repository's plugin files into a folder there, e.g. `bolt-chunkman`, so that
    `bolt.json` sits at the top of that folder.
 3. In Bolt, add / enable the plugin and launch RuneScape 3.
 

@@ -38,6 +38,9 @@ local SETTINGS_FILE = "chunkman-settings.cfg"
 local DEFAULTS = {
     -- grey out the whole world EXCEPT a hand-picked list of "unlocked" chunks
     greyLocked = false,                                -- grey everything but the unlocked chunks listed below
+    overworldOnlyLocks = true,                         -- only grey/dim while in the overworld (off in dungeons/instances)
+    overworldMinChunkId = 7446,                        -- one corner of the overworld region box (SW)
+    overworldMaxChunkId = 18247,                       -- opposite corner of the overworld region box (NE)
     unlockedChunkIds = "",                             -- comma-separated unlocked chunk IDs, e.g. "13108, 13109"
     clickUnlock = true,                                -- ctrl+alt+middle-click a chunk to toggle it
     dimLockedView = true,                              -- dim the whole view while standing in a locked chunk
@@ -80,6 +83,9 @@ local cfg = deepcopy(DEFAULTS)
 -- type: "bool" | "int" | "float" | "rgb" | "rgba"
 local SCHEMA = {
     { key = "greyLocked",          type = "bool",  group = "Unlocked Chunks",    label = "Grey out locked chunks" },
+    { key = "overworldOnlyLocks",  type = "bool",  group = "Unlocked Chunks",    label = "Only grey out in the overworld (not in dungeons)" },
+    { key = "overworldMinChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (SW)", min = 0, max = 65535, step = 1 },
+    { key = "overworldMaxChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (NE)", min = 0, max = 65535, step = 1 },
     { key = "unlockedChunkIds",    type = "text",  group = "Unlocked Chunks",    label = "Unlocked chunk IDs", placeholder = "e.g. 13108, 13109" },
     { key = "clickUnlock",         type = "bool",  group = "Unlocked Chunks",    label = "Ctrl+Alt+middle-click to unlock/lock a chunk" },
     { key = "dimLockedView",       type = "bool",  group = "Unlocked Chunks",    label = "Dim the view when in a locked chunk" },
@@ -271,6 +277,23 @@ local function rebuildGreyChunks()
         end
     end
     keepRegions, keepSet = list, set
+end
+
+-- Is the player currently in the overworld? The overworld is the rectangular
+-- box of regions whose opposite corners are the two configured chunk IDs (each
+-- chunk ID = regionX*256 + regionZ, so it decodes to a region X/Z). A region is
+-- in the overworld when its X and Z both fall inside that box; dungeons,
+-- instances and other off-map areas fall outside it. While outside, we suppress
+-- the locked-chunk grey-out entirely, so nothing is greyed in a dungeon. With
+-- the gate disabled, locks apply everywhere (the previous behaviour).
+local function isOverworld(prx, prz)
+    if not cfg.overworldOnlyLocks then return true end
+    local lo, hi = cfg.overworldMinChunkId, cfg.overworldMaxChunkId
+    local rxA, rzA = math.floor(lo / CHUNKS_PER_AXIS), lo % CHUNKS_PER_AXIS
+    local rxB, rzB = math.floor(hi / CHUNKS_PER_AXIS), hi % CHUNKS_PER_AXIS
+    if rxA > rxB then rxA, rxB = rxB, rxA end
+    if rzA > rzB then rzA, rzB = rzB, rzA end
+    return prx >= rxA and prx <= rxB and prz >= rzA and prz <= rzB
 end
 
 loadSettings()
@@ -680,8 +703,9 @@ bolt.onrendergameview(function(event)
     local tzMax = (prz + cfg.regionRadius + 1) * TILES_PER_REGION
 
     -- grey out everything except the hand-picked "unlocked" chunks, as vertical
-    -- curtains (drawn first, so the boundary lines render on top)
-    if cfg.greyLocked then
+    -- curtains (drawn first, so the boundary lines render on top). Skipped
+    -- entirely when outside the overworld (e.g. dungeons), so nothing is greyed.
+    if cfg.greyLocked and isOverworld(prx, prz) then
         drawGreyChunks(event, y)
         -- if you're standing in a locked chunk, dim the entire camera view. With
         -- nothing unlocked, every chunk is locked, so this dims the world.
@@ -830,6 +854,7 @@ bolt.onswapbuffers(function(event)
                 "shader_ok=" .. tostring(shader ~= nil),
                 "player_tile=" .. (haveMM and string.format("%d,%d", ptx, ptz) or "nil"),
                 "player_region=" .. (haveMM and string.format("%d,%d", math.floor(ptx / 64), math.floor(ptz / 64)) or "nil"),
+                "overworld=" .. (haveMM and tostring(isOverworld(math.floor(ptx / 64), math.floor(ptz / 64))) or "nil"),
                 "ground_y=" .. (haveGroundY and string.format("%.0f", groundY) or "nil"),
                 "win_size=" .. string.format("%d,%d", lastWinW or 0, lastWinH or 0),
                 "last_congrats=" .. lastCongratsGeom,
