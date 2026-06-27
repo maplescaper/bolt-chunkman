@@ -130,27 +130,9 @@ removed.**
 These chunk IDs map to the chunk picker IDs [found here](https://github.com/source-chunk/chunk-picker-rs3). If this
 updates before this plugin, then use the `Overworld box corner` settings to adjust the plugin overworld detection.
 
-## Installation
+## Manual Installation
 
-### From an updater URL (recommended)
-
-Bolt can install and auto-update this plugin straight from a URL to its `meta.json`:
-
-1. In Bolt, open the **Play** menu → **Manage plugins** → **Install plugin from updater URL**.
-2. Paste the updater URL:
-
-   ```
-   https://codeberg.org/maplescaper/bolt-chunkman/releases/download/1.0/meta.json
-   ```
-
-3. Launch RuneScape 3. You should see `[chunk-man] loaded` in the console and the gear icon
-   at the top-left of the game view.
-
-Bolt reads [`meta.json`](meta.json), downloads the `.tar.gz` it points at, verifies the
-`sha256`, and extracts it into the plugin directory. When a new release bumps the `version`
-in `meta.json`, Bolt offers the update automatically.
-
-### Manual install
+If the installation instructions above don't work for some reason, you can also install it manually:
 
 1. Locate your Bolt plugins directory (on Windows this is typically
    `%AppData%\bolt-launcher\data\plugins`).
