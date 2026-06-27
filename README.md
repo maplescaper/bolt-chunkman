@@ -6,6 +6,11 @@ This plugin draws the chunk grid directly onto the game world so you can see
 exactly where the boundaries are, greys out everything you haven't unlocked yet, and lets
 you unlock new chunks with a single click (`Ctrl + Alt + middle-click`).
 
+Bolt Launcher Install URL:
+```
+https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
+```
+
 <video src="https://codeberg.org/maplescaper/bolt-chunkman/media/branch/main/images/chunkman-gif.webm" controls width="100%"></video>
 > Use `Ctrl + Alt + middle-click` to unlock/lock chunks.
 > If the video above doesn't play inline, [download / open `chunkman-gif.webm`](images/chunkman-gif.webm).
@@ -112,14 +117,14 @@ The updater URL above points at a GitHub release asset. To cut a release:
 2. Build the plugin tarball (plugin files only so no README/images/`.git`/etc.):
 
    ```sh
-   tar -czf bolt-chunkman-<version>.tar.gz bolt.json main.lua resources/ ui/
+   tar -czf bolt-chunkman-<version>.tar.gz bolt.json main.lua resources ui
    ```
 
 3. Compute its checksum and put it in `meta.json` (`sha256` field), and update the `url`
    field to the new tag/asset name:
 
    ```sh
-   sha256sum bolt-chunkman-<version>.tar.gz
+   Get-FileHash .\bolt-chunkman-<version>.tar.gz -Algorithm SHA256
    ```
 
 4. Create a release tagged `<version>` and upload **both** `bolt-chunkman-<version>.tar.gz`

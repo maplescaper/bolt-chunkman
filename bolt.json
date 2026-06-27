@@ -1,6 +1,6 @@
 {
   "name": "Chunk Man Plugin",
-  "version": "1.0",
-  "description": "Draws region / map-square (64x64 tile) outlines on the ground, plus optional tile markers, in RuneScape 3.",
+  "version": "1.0.1",
+  "description": "Chunk Man mode plugin for RuneScape 3 which greys out locked chunks (and more).",
   "main": "main.lua"
 }
