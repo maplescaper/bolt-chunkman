@@ -42,15 +42,17 @@ at the top-right and navigate to the RS3 section to enable the plugin loader. Re
 not be needed).
 
 Make sure you're logged in to your account, and before pressing play, go to the `Plugin Menu` underneath the
-play button to add the plugin. Select the `From URL` option, paste this install URL and then hit the green
-checkmark to load it in:
+play button to add the plugin. Select the `From URL` option, paste this install URL into the text box and then
+hit the green checkmark to load it in:
 ```
 https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
 ```
 
 You should now see the `Chunk Man Plugin` in the list of loaded plugins. Before it can be used, you need to
 enable it for the account that will be using it. Exit the `Plugin Menu` and press `Play` for the account you
-want to enable it on. Once the account is in the lobby, return to the `Plugin Menu` in the Bolt Launcher. You
+want to enable it on.
+
+Once the account is in the lobby, return to the `Plugin Menu` in the Bolt Launcher. You
 should see your account's name in the section on the left-side. Click the account name, and then enable
 `Auto` and turn the toggle on (should be light blue once enabled). At this point, it should be enabled for you
 in your game client. You'll know it's enabled if you see a cog icon on the top-left corner. If it's not there,
