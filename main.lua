@@ -37,12 +37,13 @@ local SETTINGS_FILE = "chunkman-settings.cfg"
 -- values (for "Reset"); cfg is the working copy that the renderer reads.
 local DEFAULTS = {
     -- grey out the whole world EXCEPT a hand-picked list of "unlocked" chunks
-    greyLocked = false,                                -- grey everything but the unlocked chunks listed below
+    greyLocked = true,                                 -- grey everything but the unlocked chunks listed below
     overworldOnlyLocks = true,                         -- only grey/dim while in the overworld (off in dungeons/instances)
     overworldMinChunkId = 7446,                        -- one corner of the overworld region box (SW)
     overworldMaxChunkId = 18247,                       -- opposite corner of the overworld region box (NE)
     unlockedChunkIds = "",                             -- comma-separated unlocked chunk IDs, e.g. "13108, 13109"
     clickUnlock = true,                                -- ctrl+alt+middle-click a chunk to toggle it
+    showUnlockPopup = true,                            -- show the "chunk unlocked" congratulations popup
     dimLockedView = true,                              -- dim the whole view while standing in a locked chunk
     lockedColour = { r = 0, g = 0, b = 0, a = 0.75 },  -- curtain colour + opacity
     lockedWallHeight = 60000,                          -- world units the curtains rise toward the sky
@@ -88,6 +89,7 @@ local SCHEMA = {
     { key = "overworldMaxChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (NE)", min = 0, max = 65535, step = 1 },
     { key = "unlockedChunkIds",    type = "text",  group = "Unlocked Chunks",    label = "Unlocked chunk IDs", placeholder = "e.g. 13108, 13109" },
     { key = "clickUnlock",         type = "bool",  group = "Unlocked Chunks",    label = "Ctrl+Alt+middle-click to unlock/lock a chunk" },
+    { key = "showUnlockPopup",     type = "bool",  group = "Unlocked Chunks",    label = "Show the \"chunk unlocked\" popup" },
     { key = "dimLockedView",       type = "bool",  group = "Unlocked Chunks",    label = "Dim the view when in a locked chunk" },
     { key = "lockedColour",        type = "rgba",  group = "Unlocked Chunks",    label = "Locked-chunk colour & opacity" },
     { key = "lockedWallHeight",    type = "int",   group = "Unlocked Chunks",    label = "Locked-chunk wall height (world units)", min = 1000, max = 200000, step = 1000 },
@@ -759,7 +761,7 @@ local function applyChunkToggle(rx, rz)
         panelBrowser:sendmessage(jsonEncode({ type = "values", values = valuesPayload() }))
     end
     -- celebrate a newly unlocked chunk (not when locking one back up)
-    if not remove then
+    if not remove and cfg.showUnlockPopup then
         showCongrats(rx, rz, rx * CHUNKS_PER_AXIS + rz)
     end
 end

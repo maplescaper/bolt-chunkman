@@ -6,7 +6,7 @@ This plugin draws the chunk grid directly onto the game world so you can see
 exactly where the boundaries are, greys out everything you haven't unlocked yet, and lets
 you unlock new chunks with a single click (`Ctrl + Alt + middle-click`).
 
-Bolt Launcher Install URL:
+Bolt Launcher Install URL (see [First Use](#first-use) section below as well):
 ```
 https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
 ```
@@ -36,6 +36,31 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
 - **Settings panel**: a gear icon at the top-left of the screen opens an in-game
   settings panel. Most settings apply instantly, but others may need a client restart.
 
+## First Use
+
+When you first run the game with this plugin enabled, the **game view should be greyed out** since you likely don't
+have any chunks unlocked yet. Hit `Ctrl + Alt + middle-click` under your character to unlock the chunk you're
+currently in. Depending on your camera orientation and your position in the world, you may need to move the camera
+to see that the chunk has been unlocked (the popup should show too).
+
+If the settings interface on the top-left is too big/small, there's a UI scale option at the bottom of the settings
+that you can use to adjust the size. On 4k monitors, this may be necessary (1.5x works well for me).
+
+To add an existing list of chunk IDs to the plugin, see the [Chunks](#chunks) section below.
+
+### Caveats
+
+This has only been tested on Windows. It's unknown if it works on Mac and Linux. Specific tested scenarios:
+- Windows with 4k resolution using Default interface and custom interface with different game view size.
+- Windows with 1080p resolution same scenarios as above.
+
+### Known Issues
+
+This section will contain some known issues/limitations that won't be fixed.
+- When orienting the camera to be outside of the chunk you're in, it'll look like those chunks are unlocked and
+  that your character is outside of the chunk bounds. This is a limitation of how the chunks are greyed-out and
+  won't be fixed. **If you are outside of your chunk bounds, the whole game view will be greyed out.**
+
 ## Settings
 
 Click the gear icon at the top-left to open the panel. Most settings apply live and are
@@ -50,6 +75,7 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 | | Overworld box corner chunk ID (SW) | Minimum chunk number from southwestern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Overworld box corner chunk ID (NE) | Maximum chunk number from northeastern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Ctrl+Alt+middle-click to unlock/lock | Toggle a chunk by clicking it on the ground. |
+| | Show the "chunk unlocked" popup | Toggle to disable/enable the chunk unlock popup when you unlock a new one. |
 | | Dim the view when in a locked chunk | Tint the whole screen when you're out of bounds. |
 | | Locked-chunk colour & opacity | Curtain / dim colour and strength. |
 | | Locked-chunk wall height | How far the curtains rise toward the sky (world units). |
@@ -74,7 +100,8 @@ by clicking anywhere in the chunk.
 
 Alternatively, get a CSV list of the chunk IDs and add those to the `unlockedChunkIds` variable in the
 `chunkman-settings.cfg` file found in the plugins config directory (usually `%AppData%\bolt-launcher\config\plugins`
-on Windows.
+on Windows. **Make sure to backup your config file! If you ever delete the plugin, your unlocked chunks will also be 
+removed.**
 
 ### Chunk ID source
 
