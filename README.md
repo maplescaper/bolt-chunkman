@@ -1,12 +1,11 @@
 # bolt-chunkman
 
 A **Chunk Man** plugin for the [Bolt Launcher](https://codeberg.org/Adamcake/Bolt) for RuneScape 3.
-
 This plugin draws the chunk grid directly onto the game world so you can see
 exactly where the boundaries are, greys out everything you haven't unlocked yet, and lets
 you unlock new chunks with a single click (`Ctrl + Alt + middle-click`).
 
-Bolt Launcher Install URL (see [First Use](#first-use) section below as well):
+Bolt Launcher Install URL, see the [Installation](#installation) section below as well for how to use the URL and first use info:
 ```
 https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
 ```
@@ -36,7 +35,28 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
 - **Settings panel**: a gear icon at the top-left of the screen opens an in-game
   settings panel. Most settings apply instantly, but others may need a client restart.
 
-## First Use
+## Installation
+
+To use this plugin, first install the Bolt Launcher. After that, when you first open it, go to the cog icon
+at the top-right and navigate to the RS3 section to enable the plugin loader. Restart Bolt after this (might
+not be needed).
+
+Make sure you're logged in to your account, and before pressing play, go to the `Plugin Menu` underneath the
+play button to add the plugin. Select the `From URL` option, paste this install URL and then hit the green
+checkmark to load it in:
+```
+https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
+```
+
+You should now see the `Chunk Man Plugin` in the list of loaded plugins. Before it can be used, you need to
+enable it for the account that will be using it. Exit the `Plugin Menu` and press `Play` for the account you
+want to enable it on. Once the account is in the lobby, return to the `Plugin Menu` in the Bolt Launcher. You
+should see your account's name in the section on the left-side. Click the account name, and then enable
+`Auto` and turn the toggle on (should be light blue once enabled). At this point, it should be enabled for you
+in your game client. You'll know it's enabled if you see a cog icon on the top-left corner. If it's not there,
+try restarting the game client.
+
+### First Use
 
 When you first run the game with this plugin enabled, the **game view should be greyed out** since you likely don't
 have any chunks unlocked yet. Hit `Ctrl + Alt + middle-click` under your character to unlock the chunk you're
