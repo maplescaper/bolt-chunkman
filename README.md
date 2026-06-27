@@ -6,7 +6,7 @@ This plugin draws the chunk grid directly onto the game world so you can see
 exactly where the boundaries are, greys out everything you haven't unlocked yet, and lets
 you unlock new chunks with a single click (`Ctrl + Alt + middle-click`).
 
-<video src="images/chunkman-gif.webm" controls width="100%"></video>
+<video src="https://codeberg.org/maplescaper/bolt-chunkman/media/branch/main/images/chunkman-gif.webm" controls width="100%"></video>
 > Use `Ctrl + Alt + middle-click` to unlock/lock chunks.
 > If the video above doesn't play inline, [download / open `chunkman-gif.webm`](images/chunkman-gif.webm).
 
