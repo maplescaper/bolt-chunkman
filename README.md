@@ -86,7 +86,7 @@ Bolt can install and auto-update this plugin straight from a URL to its `meta.js
 2. Paste the updater URL:
 
    ```
-   https://github.com/maplescaper/bolt-chunkman/releases/download/1.0/meta.json
+   https://codeberg.org/maplescaper/bolt-chunkman/releases/download/1.0/meta.json
    ```
 
 3. Launch RuneScape 3. You should see `[chunk-man] loaded` in the console and the gear icon
@@ -109,7 +109,7 @@ in `meta.json`, Bolt offers the update automatically.
 The updater URL above points at a GitHub release asset. To cut a release:
 
 1. Bump `version` in both [`bolt.json`](bolt.json) and [`meta.json`](meta.json).
-2. Build the plugin tarball (plugin files only — no README/images/`.git`):
+2. Build the plugin tarball (plugin files only so no README/images/`.git`/etc.):
 
    ```sh
    tar -czf bolt-chunkman-<version>.tar.gz bolt.json main.lua resources/ ui/
@@ -122,7 +122,7 @@ The updater URL above points at a GitHub release asset. To cut a release:
    sha256sum bolt-chunkman-<version>.tar.gz
    ```
 
-4. Create a GitHub release tagged `<version>` and upload **both** `bolt-chunkman-<version>.tar.gz`
+4. Create a release tagged `<version>` and upload **both** `bolt-chunkman-<version>.tar.gz`
    and `meta.json` as assets. The `meta.json` URL of that release is the updater URL users install.
 
 
