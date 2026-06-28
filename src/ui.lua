@@ -55,6 +55,16 @@ function M.refreshPanelValues()
     end
 end
 
+-- Tell the open settings panel whether the external text editor is currently
+-- open, so it can show/hide a warning banner. The editor is a real OS window
+-- that can open behind the game (Bolt has no API to foreground it), so the
+-- banner points the user to it.
+local function notifyEditorOpen(open)
+    if panelBrowser then
+        panelBrowser:sendmessage(jsonEncode({ type = "editorOpen", open = open }))
+    end
+end
+
 -- ---- settings panel ----
 local function closePanel()
     if panelBrowser then
@@ -69,9 +79,20 @@ local function onPanelMessage(msg)
             panelBrowser:sendmessage(jsonEncode({
                 type = "init", schema = config.SCHEMA, values = settings.valuesPayload(),
             }))
+            -- if the editor is already open, re-show the banner on this (re)opened panel
+            if textEditorBrowser then notifyEditorOpen(true) end
         end
     elseif msg == "tasks" then
-        tasks.toggle()
+        -- the tasks panel is useless without a chunk-picker map id, so if none is
+        -- set yet, open the text editor to add one instead of opening the panel.
+        -- Defer it like editext below: opening the external window inside this
+        -- browser message callback hard-freezes the client (M.pump opens it).
+        local mid = tostring(cfg.chunkPickerMapId or ""):gsub("[^%w]", "")
+        if mid == "" then
+            pendingEdit = "chunkPickerMapId"
+        else
+            tasks.toggle()
+        end
     elseif msg:match("^editext\n") then
         -- defer: opening the external window here (inside this browser message
         -- callback) hard-freezes the client; M.pump() does it next frame.
@@ -117,6 +138,7 @@ local function closeTextEditor()
         textEditorBrowser:close()
         textEditorBrowser = nil
     end
+    notifyEditorOpen(false)
 end
 
 openTextEditor = function(key)
@@ -132,6 +154,7 @@ openTextEditor = function(key)
         return
     end
     textEditorBrowser = b
+    notifyEditorOpen(true)
     b:onmessage(function(m)
         if m == "ready" then
             b:sendmessage(jsonEncode({

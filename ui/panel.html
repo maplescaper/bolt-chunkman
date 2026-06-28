@@ -53,6 +53,17 @@
   }
   .hbtn:hover { border-color: var(--gold); color: var(--gold); }
   #close { font-size: 15px; line-height: 1; padding: 4px 8px; }
+  /* red warning shown while the external text editor window is open: it can
+     open behind the game, so point the user to it. */
+  #editor-warn {
+    flex: none; display: none;
+    padding: 8px 12px;
+    background: rgba(150, 28, 28, 0.96);
+    border-bottom: 1px solid rgba(255, 120, 120, 0.55);
+    color: #ffe2e2; font-size: 12px; line-height: 1.35;
+  }
+  #editor-warn.show { display: block; }
+  #editor-warn b { color: #fff; }
   #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
   #body::-webkit-scrollbar { width: 9px; }
   #body::-webkit-scrollbar-thumb { background: rgba(255, 200, 90, 0.25); border-radius: 5px; }
@@ -147,6 +158,9 @@
       <button class="hbtn" id="reset" title="Restore defaults">Reset</button>
       <button class="hbtn" id="close" title="Close">&times;</button>
     </header>
+    <div id="editor-warn">
+      <b>Text editor opened.</b> It may be hidden behind the game window.
+    </div>
     <div id="body"><div id="empty">Loading settings&hellip;</div></div>
     <div id="resize" title="Drag to resize height"></div>
   </div>
@@ -295,6 +309,9 @@
       catch (err) { return; }
       if (msg.type === "init") buildForm(msg.schema, msg.values);
       else if (msg.type === "values") applyValues(msg.values);
+      else if (msg.type === "editorOpen") {
+        document.getElementById("editor-warn").classList.toggle("show", !!msg.open);
+      }
     });
 
     document.getElementById("close").addEventListener("click", () => {

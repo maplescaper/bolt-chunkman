@@ -34,6 +34,10 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
   in.
 - **Settings panel**: a gear icon at the top-left of the screen opens an in-game
   settings panel. Most settings apply instantly, but others may need a client restart.
+- **Chunk Picker integration**: accessed from the `Tasks` button in the settings panel. Input
+  the map ID from your [chunk picker](https://source-chunk.github.io/chunk-picker-rs3) map
+  and the tasks panel will be populated with your active and backlogged tasks. See the
+  [chunks](#chunks) section for more informaion.
 
 ## Installation
 
@@ -97,6 +101,7 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 | | Dim the view when in a locked chunk | Tint the whole screen when you're out of bounds. |
 | | Locked-chunk colour & opacity | Curtain / dim colour and strength. |
 | | Locked-chunk wall height | How far the curtains rise toward the sky (world units). |
+| **Chunk Picker** | Chunk Picker map ID | The map ID from the Chunk Picker map you're using, case-sensitive (e.g. `abc`). |
 | **Region grid lines** | Show region boundary lines | Draw the chunk grid. |
 | | Region radius | How many rings of regions to draw around you (1 → 3×3). |
 | | Grid line colour | Colour of the boundary lines. |
@@ -118,7 +123,17 @@ updates before this plugin, then use the `Overworld box corner` settings to adju
 
 ### Chunk Picker Tasks Integration
 
-You can import the RS3 Chunk Picker tasks into a separate tasks panel to display them in game.
+You can import the [RS3 Chunk Picker](https://source-chunk.github.io/chunk-picker-rs3) tasks into a separate tasks panel
+to display them in game. These are downloaded once and cached until you request a manual refresh. You can access this
+panel by clicking on `Tasks` at the top-right of the Settings panel. With no map ID defined, it'll prompt you to add one
+first. **Note that the text editor to input the map ID might open in the background.** Once the map ID is input, you
+should see the tasks panel populated with all of your existing active/backlogged tasks like so:
+
+![Chunk Tasks panel](images/chunkman_plugin_tasks.png)
+
+Tasks striked through with a dark green colour are those that have been marked as completed in the chunk picker. Those
+marked in bright green are the ones marked as completed locally and have not been marked as completed in the chunk picker.
+**We don't mark the locally completed ones in the chunk picker.**
 
 ### Adding existing chunks
 
