@@ -41,6 +41,8 @@ local SETTINGS_FILE = LEGACY_SETTINGS_FILE
 local DEFAULTS = {
     -- grey out the whole world EXCEPT a hand-picked list of "unlocked" chunks
     greyLocked = true,                                 -- grey everything but the unlocked chunks listed below
+    reconstructGrey = true,                            -- true: per-pixel depth-reconstruction grey-out; false: original curtain walls
+    greySky = true,                                    -- mode A: also grey the sky (belongs to no unlocked chunk)
     overworldDetection = true,                         -- master switch: detect the overworld at all (off => treat everywhere as overworld)
     overworldMinChunkId = 6950,                        -- one corner of the overworld region box (SW)
     overworldMaxChunkId = 15424,                       -- opposite corner of the overworld region box (NE)
@@ -87,6 +89,8 @@ local cfg = deepcopy(DEFAULTS)
 -- type: "bool" | "int" | "float" | "rgb" | "rgba"
 local SCHEMA = {
     { key = "greyLocked",          type = "bool",  group = "Unlocked Chunks",    label = "Grey out locked chunks" },
+    { key = "reconstructGrey",     type = "bool",  group = "Unlocked Chunks",    label = "Pixel-perfect grey-out (off = curtain walls)" },
+    { key = "greySky",             type = "bool",  group = "Unlocked Chunks",    label = "Grey out the sky (pixel-perfect mode)" },
     { key = "overworldDetection",  type = "bool",  group = "Unlocked Chunks",    label = "Enable overworld detection" },
     { key = "overworldMinChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (SW)", min = 0, max = 65535, step = 1 },
     { key = "overworldMaxChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (NE)", min = 0, max = 65535, step = 1 },
@@ -292,8 +296,9 @@ end
 -- whenever the setting changes (after load, reset, or a panel edit).
 local keepRegions = {}
 local keepSet = {}
+local keepIds = {}    -- flat list of unlocked chunk IDs (for the grey shader)
 local function rebuildGreyChunks()
-    local list, set = {}, {}
+    local list, set, ids = {}, {}, {}
     for tok in tostring(cfg.unlockedChunkIds):gmatch("[^,%s]+") do
         local id = tonumber(tok)
         if id and id >= 0 then
@@ -303,10 +308,11 @@ local function rebuildGreyChunks()
             if not set[key] then
                 set[key] = true
                 list[#list + 1] = { rx = rx, rz = rz }
+                ids[#ids + 1] = rx * CHUNKS_PER_AXIS + rz
             end
         end
     end
-    keepRegions, keepSet = list, set
+    keepRegions, keepSet, keepIds = list, set, ids
 end
 
 -- Additional overworld region boxes beyond the configured primary one. Each
@@ -554,7 +560,7 @@ do
     if not ok then print("[chunk-man] shader init failed: " .. tostring(err)) end
 end
 
--- ---- fill shader (greys out surrounding regions) ----
+-- ---- fill shader (full-view dim) ----
 local fillShader, fillBuffer
 do
     local ok, err = pcall(function()
@@ -566,6 +572,22 @@ do
         fillBuffer = bolt.createshaderbuffer("\x00\x00\x01\x00\x01\x01\x00\x00\x01\x01\x00\x01")
     end)
     if not ok then print("[chunk-man] fill shader init failed: " .. tostring(err)) end
+end
+
+-- ---- grey shader (per-pixel world-position grey-out of locked chunks) ----
+-- A single full-screen pass that reconstructs each pixel's world position from
+-- the depth buffer and greys it by the chunk it belongs to. Replaces the old
+-- vertical-curtain walls, whose projected edges floated over undulating terrain
+-- and drifted with the camera. Reuses fillBuffer (same unit-square geometry).
+local greyShader
+do
+    local ok, err = pcall(function()
+        local vs = bolt.createvertexshader(bolt.loadfile("resources/greyshader.vert"))
+        local fs = bolt.createfragmentshader(bolt.loadfile("resources/greyshader.frag"))
+        greyShader = bolt.createshaderprogram(vs, fs)
+        greyShader:setattribute(0, 1, true, false, 2, 0, 2)
+    end)
+    if not ok then print("[chunk-man] grey shader init failed: " .. tostring(err)) end
 end
 
 -- ---- state ----
@@ -647,11 +669,83 @@ local function addBoundary(lines, constX, fixedTile, t0, t1, y, col)
     end
 end
 
--- ---- GPU grey-out: vertical curtains along chunk frontiers ----
+-- ---- 4x4 matrix inverse (column-major, as bolt's viewprojmatrix:get() gives) --
+-- Used to turn screen + depth back into a world position in the grey shader.
+-- Standard cofactor inverse (MESA gluInvertMatrix), 1-based Lua arrays. Returns
+-- the inverse as a 16-element column-major table, or nil if singular.
+local unpack = table.unpack or unpack
+local function invertMat4(m)
+    local inv = {}
+    inv[1]  =  m[6]*m[11]*m[16] - m[6]*m[12]*m[15] - m[10]*m[7]*m[16] + m[10]*m[8]*m[15] + m[14]*m[7]*m[12] - m[14]*m[8]*m[11]
+    inv[5]  = -m[5]*m[11]*m[16] + m[5]*m[12]*m[15] + m[9]*m[7]*m[16]  - m[9]*m[8]*m[15]  - m[13]*m[7]*m[12] + m[13]*m[8]*m[11]
+    inv[9]  =  m[5]*m[10]*m[16] - m[5]*m[12]*m[14] - m[9]*m[6]*m[16]  + m[9]*m[8]*m[14]  + m[13]*m[6]*m[12] - m[13]*m[8]*m[10]
+    inv[13] = -m[5]*m[10]*m[15] + m[5]*m[11]*m[14] + m[9]*m[6]*m[15]  - m[9]*m[7]*m[14]  - m[13]*m[6]*m[11] + m[13]*m[7]*m[10]
+    inv[2]  = -m[2]*m[11]*m[16] + m[2]*m[12]*m[15] + m[10]*m[3]*m[16] - m[10]*m[4]*m[15] - m[14]*m[3]*m[12] + m[14]*m[4]*m[11]
+    inv[6]  =  m[1]*m[11]*m[16] - m[1]*m[12]*m[15] - m[9]*m[3]*m[16]  + m[9]*m[4]*m[15]  + m[13]*m[3]*m[12] - m[13]*m[4]*m[11]
+    inv[10] = -m[1]*m[10]*m[16] + m[1]*m[12]*m[14] + m[9]*m[2]*m[16]  - m[9]*m[4]*m[14]  - m[13]*m[2]*m[12] + m[13]*m[4]*m[10]
+    inv[14] =  m[1]*m[10]*m[15] - m[1]*m[11]*m[14] - m[9]*m[2]*m[15]  + m[9]*m[3]*m[14]  + m[13]*m[2]*m[11] - m[13]*m[3]*m[10]
+    inv[3]  =  m[2]*m[7]*m[16]  - m[2]*m[8]*m[15]  - m[6]*m[3]*m[16]  + m[6]*m[4]*m[15]  + m[14]*m[3]*m[8]  - m[14]*m[4]*m[7]
+    inv[7]  = -m[1]*m[7]*m[16]  + m[1]*m[8]*m[15]  + m[5]*m[3]*m[16]  - m[5]*m[4]*m[15]  - m[13]*m[3]*m[8]  + m[13]*m[4]*m[7]
+    inv[11] =  m[1]*m[6]*m[16]  - m[1]*m[8]*m[14]  - m[5]*m[2]*m[16]  + m[5]*m[4]*m[14]  + m[13]*m[2]*m[8]  - m[13]*m[4]*m[6]
+    inv[15] = -m[1]*m[6]*m[15]  + m[1]*m[7]*m[14]  + m[5]*m[2]*m[15]  - m[5]*m[3]*m[14]  - m[13]*m[2]*m[7]  + m[13]*m[3]*m[6]
+    inv[4]  = -m[2]*m[7]*m[12]  + m[2]*m[8]*m[11]  + m[6]*m[3]*m[12]  - m[6]*m[4]*m[11]  - m[10]*m[3]*m[8]  + m[10]*m[4]*m[7]
+    inv[8]  =  m[1]*m[7]*m[12]  - m[1]*m[8]*m[11]  - m[5]*m[3]*m[12]  + m[5]*m[4]*m[11]  + m[9]*m[3]*m[8]   - m[9]*m[4]*m[7]
+    inv[12] = -m[1]*m[6]*m[12]  + m[1]*m[8]*m[10]  + m[5]*m[2]*m[12]  - m[5]*m[4]*m[10]  - m[9]*m[2]*m[8]   + m[9]*m[4]*m[6]
+    inv[16] =  m[1]*m[6]*m[11]  - m[1]*m[7]*m[10]  - m[5]*m[2]*m[11]  + m[5]*m[3]*m[10]  + m[9]*m[2]*m[7]   - m[9]*m[3]*m[6]
+
+    local det = m[1]*inv[1] + m[2]*inv[5] + m[3]*inv[9] + m[4]*inv[13]
+    if det == 0 then return nil end
+    det = 1.0 / det
+    for i = 1, 16 do inv[i] = inv[i] * det end
+    return inv
+end
+
+-- ---- GPU grey-out mode A: per-pixel by reconstructed world position ----
+-- One full-screen pass. The fragment shader reconstructs each pixel's world
+-- position from the depth buffer (using the inverse camera matrix), works out
+-- which chunk it lies in, and greys it unless that chunk is unlocked. Because
+-- every pixel is judged by where it actually is, the grey boundary follows the
+-- terrain exactly and never floats or drifts with the camera -- the problem the
+-- old vertical curtains could never fully shake. Nothing to draw if no chunk is
+-- unlocked (the whole-view dim handles "everything locked" instead).
+local KEEP_VEC4_MAX = 64                 -- 64 vec4s => up to 256 unlocked chunks
+local KEEP_MAX = KEEP_VEC4_MAX * 4
+local warnedKeepOverflow = false
+local function drawGreyReconstruct(event)
+    if not greyShader or #keepIds == 0 then return end
+    local inv = invertMat4({ viewproj:get() })
+    if not inv then return end
+    local sw, sh = bolt.gamewindowsize()
+    local n = #keepIds
+    if n > KEEP_MAX then
+        if not warnedKeepOverflow then
+            print(string.format("[chunk-man] over %d unlocked chunks; only the first %d are greyed correctly", KEEP_MAX, KEEP_MAX))
+            warnedKeepOverflow = true
+        end
+        n = KEEP_MAX
+    end
+    greyShader:setuniform4f(1, cfg.lockedColour.r, cfg.lockedColour.g, cfg.lockedColour.b, cfg.lockedColour.a)
+    greyShader:setuniform2f(2, sw, sh)
+    greyShader:setuniformmatrix4f(3, false, unpack(inv))
+    greyShader:setuniformdepthbuffer(7, event)
+    greyShader:setuniform1f(8, n)
+    greyShader:setuniform1f(9, cfg.greySky and 1 or 0)
+    for j = 0, math.ceil(n / 4) - 1 do
+        greyShader:setuniform4f(10 + j,
+            keepIds[j * 4 + 1] or -1, keepIds[j * 4 + 2] or -1,
+            keepIds[j * 4 + 3] or -1, keepIds[j * 4 + 4] or -1)
+    end
+    greyShader:drawtogameview(event, fillBuffer, 6)
+end
+
+-- ---- GPU grey-out mode B: vertical curtains along chunk frontiers (original) --
 -- The shared uniforms (camera, height range, colour, depth) are set once per
 -- frame via beginWalls; drawWallSeg then raises a single curtain along one
--- ground edge. drawGreyChunks uses these to wall off the frontier of the
--- unlocked area.
+-- ground edge. drawGreyCurtains uses these to wall off the frontier of the
+-- unlocked area. This is the original approach: a vertical wall is projected per
+-- chunk edge and the depth buffer darkens whatever lies behind it. Kept as a
+-- selectable mode (cfg.reconstructGrey = false); its edges can float/drift over
+-- undulating terrain, which is exactly why mode A exists.
 local function beginWalls(event, y)
     local sw, sh = bolt.gamewindowsize()
     fillShader:setuniformmatrix4f(3, false, viewproj:get())
@@ -673,7 +767,7 @@ end
 -- chunks stay open, so a contiguous unlocked area is fully clear inside and
 -- curtained at its perimeter. If nothing is unlocked there are no frontiers and
 -- this draws nothing -- the whole-view dim (below) covers that case instead.
-local function drawGreyChunks(event, y)
+local function drawGreyCurtains(event, y)
     if not fillShader or #keepRegions == 0 then return end
     beginWalls(event, y)
     local U = UNITS_PER_TILE * TILES_PER_REGION
@@ -743,24 +837,24 @@ end
 
 bolt.onrendergameview(function(event)
     lastWinW, lastWinH = bolt.gamewindowsize()
-    local y = gridHeight()
-    if not (viewproj and haveMM and y) then return end
+    if not (viewproj and haveMM) then return end
 
     local ptx = math.floor(mmX / UNITS_PER_TILE)
     local ptz = math.floor(mmZ / UNITS_PER_TILE)
     local prx = math.floor(ptx / TILES_PER_REGION)
     local prz = math.floor(ptz / TILES_PER_REGION)
 
-    local txMin = (prx - cfg.regionRadius) * TILES_PER_REGION
-    local txMax = (prx + cfg.regionRadius + 1) * TILES_PER_REGION
-    local tzMin = (prz - cfg.regionRadius) * TILES_PER_REGION
-    local tzMax = (prz + cfg.regionRadius + 1) * TILES_PER_REGION
-
-    -- grey out everything except the hand-picked "unlocked" chunks, as vertical
-    -- curtains (drawn first, so the boundary lines render on top). Skipped
-    -- entirely when outside the overworld (e.g. dungeons), so nothing is greyed.
+    -- grey out everything except the hand-picked "unlocked" chunks. Two modes:
+    -- A (reconstructGrey) greys per-pixel by reconstructed world position (no
+    -- placement height needed); B is the original projected curtain walls (needs
+    -- a flat height). Skipped entirely outside the overworld (e.g. dungeons).
     if cfg.greyLocked and isOverworld(prx, prz) then
-        drawGreyChunks(event, y)
+        if cfg.reconstructGrey then
+            drawGreyReconstruct(event)
+        else
+            local y = gridHeight()
+            if y then drawGreyCurtains(event, y) end
+        end
         -- if you're standing in a locked chunk, dim the entire camera view. With
         -- nothing unlocked, every chunk is locked, so this dims the world.
         if cfg.dimLockedView and not keepSet[prx .. "," .. prz] then
@@ -768,25 +862,34 @@ bolt.onrendergameview(function(event)
         end
     end
 
-    -- region boundary lines (orange grid + cyan current region)
+    -- region boundary lines (orange grid + cyan current region). These sit on a
+    -- flat plane, so they still need a placement height.
     if cfg.showRegionLines then
-        local lines = {}
-        for rx = prx - cfg.regionRadius, prx + cfg.regionRadius + 1 do
-            addBoundary(lines, true, rx * TILES_PER_REGION, tzMin, tzMax, y, cfg.regionColour)
-        end
-        for rz = prz - cfg.regionRadius, prz + cfg.regionRadius + 1 do
-            addBoundary(lines, false, rz * TILES_PER_REGION, txMin, txMax, y, cfg.regionColour)
-        end
+        local y = gridHeight()
+        if y then
+            local txMin = (prx - cfg.regionRadius) * TILES_PER_REGION
+            local txMax = (prx + cfg.regionRadius + 1) * TILES_PER_REGION
+            local tzMin = (prz - cfg.regionRadius) * TILES_PER_REGION
+            local tzMax = (prz + cfg.regionRadius + 1) * TILES_PER_REGION
 
-        -- highlight the region the player is in
-        local x0, x1 = prx * TILES_PER_REGION, (prx + 1) * TILES_PER_REGION
-        local z0, z1 = prz * TILES_PER_REGION, (prz + 1) * TILES_PER_REGION
-        addBoundary(lines, true, x0, z0, z1, y, cfg.currentRegionColour)
-        addBoundary(lines, true, x1, z0, z1, y, cfg.currentRegionColour)
-        addBoundary(lines, false, z0, x0, x1, y, cfg.currentRegionColour)
-        addBoundary(lines, false, z1, x0, x1, y, cfg.currentRegionColour)
+            local lines = {}
+            for rx = prx - cfg.regionRadius, prx + cfg.regionRadius + 1 do
+                addBoundary(lines, true, rx * TILES_PER_REGION, tzMin, tzMax, y, cfg.regionColour)
+            end
+            for rz = prz - cfg.regionRadius, prz + cfg.regionRadius + 1 do
+                addBoundary(lines, false, rz * TILES_PER_REGION, txMin, txMax, y, cfg.regionColour)
+            end
 
-        drawLines(event, lines)
+            -- highlight the region the player is in
+            local x0, x1 = prx * TILES_PER_REGION, (prx + 1) * TILES_PER_REGION
+            local z0, z1 = prz * TILES_PER_REGION, (prz + 1) * TILES_PER_REGION
+            addBoundary(lines, true, x0, z0, z1, y, cfg.currentRegionColour)
+            addBoundary(lines, true, x1, z0, z1, y, cfg.currentRegionColour)
+            addBoundary(lines, false, z0, x0, x1, y, cfg.currentRegionColour)
+            addBoundary(lines, false, z1, x0, x1, y, cfg.currentRegionColour)
+
+            drawLines(event, lines)
+        end
     end
 end)
 
