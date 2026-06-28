@@ -50,7 +50,7 @@ M.DEFAULTS = {
     uiScale = 1.0,                                     -- scale factor for the on-screen UI (icon, badge, panel, popup)
 
     -- diagnostics
-    writeDiag = true,                                  -- periodically write diag.txt
+    writeDiag = false,                                 -- periodically write diag.txt (off by default: it's a disk write every ~100 frames)
 }
 
 -- Schema: single source of truth for the settings UI. The panel form is built

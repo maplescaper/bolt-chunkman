@@ -44,7 +44,7 @@ end
 
 -- Find the world ground point (X,Z) on the overlay plane (height y) that the
 -- screen pixel (mx,my) points at. Quad-containment picking can't see the chunk
--- you're standing in since the camera sits inside its huge footprint, so a corner
+-- you're standing in -- the camera sits inside its huge footprint, so a corner
 -- falls behind the camera and the quad is rejected. Instead we solve directly:
 -- ground->screen on a flat plane is a smooth projective map, so Newton's method
 -- (seeded under the player) converges in a few iterations. Returns nil if it

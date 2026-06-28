@@ -56,23 +56,19 @@ end
 -- every pixel is judged by where it actually is, the grey boundary follows the
 -- terrain exactly and never floats or drifts with the camera. Nothing to draw if no chunk is
 -- unlocked (the whole-view dim handles "everything locked" instead).
-local KEEP_VEC4_MAX = 64                 -- 64 vec4s => up to 256 unlocked chunks
+-- Hard ceiling on the keep list: the shader's uKeep array is vec4[64] and its
+-- per-pixel loop is bounded the same way. When more chunks are unlocked than fit,
+-- chunks.nearestKeepIds selects the KEEP_MAX nearest the player, so the chunks
+-- that could actually be on screen are always included.
+local KEEP_VEC4_MAX = 64                 -- 64 vec4s => up to 256 chunks uploaded
 local KEEP_MAX = KEEP_VEC4_MAX * 4
-local warnedKeepOverflow = false
-local function drawGreyReconstruct(event)
-    local keepIds = chunks.keepIds
-    if not shaders.grey or #keepIds == 0 then return end
+local function drawGreyReconstruct(event, prx, prz)
+    local keepIds = chunks.nearestKeepIds(prx, prz, KEEP_MAX)
+    local n = #keepIds
+    if not shaders.grey or n == 0 then return end
     local inv = util.invertMat4({ world.viewproj:get() })
     if not inv then return end
     local sw, sh = bolt.gamewindowsize()
-    local n = #keepIds
-    if n > KEEP_MAX then
-        if not warnedKeepOverflow then
-            print(string.format("[chunk-man] over %d unlocked chunks; only the first %d are greyed correctly", KEEP_MAX, KEEP_MAX))
-            warnedKeepOverflow = true
-        end
-        n = KEEP_MAX
-    end
     local grey = shaders.grey
     grey:setuniform4f(1, cfg.lockedColour.r, cfg.lockedColour.g, cfg.lockedColour.b, cfg.lockedColour.a)
     grey:setuniform2f(2, sw, sh)
@@ -167,20 +163,20 @@ local function drawLines(event, lines)
     shader:setuniform2f(15, sw, sh)
     shader:setuniform1f(16, 0)   -- no rounded caps
 
+    -- Per-pass-constant uniforms (thickness, the constant flags, and the colour
+    -- when the outline pass forces black) are set once here rather than per
+    -- segment; only the endpoints (and the per-line colour) change in the loop.
     local function batch(extra, forceBlack)
+        local th = cfg.lineThickness + extra
+        shader:setuniform1f(4, th / 2.0)
+        shader:setuniform1f(9, th / 2.0)
+        shader:setuniform1f(7, 0)
+        shader:setuniform1f(8, 1)
+        if forceBlack then shader:setuniform4f(5, 0, 0, 0, 0.6) end
         for _, ln in ipairs(lines) do
-            local th = cfg.lineThickness + extra
             shader:setuniform3f(1, ln.x0, ln.y0, ln.z0)
             shader:setuniform3f(2, ln.x1, ln.y1, ln.z1)
-            shader:setuniform1f(4, th / 2.0)
-            shader:setuniform1f(9, th / 2.0)
-            if forceBlack then
-                shader:setuniform4f(5, 0, 0, 0, 0.6)
-            else
-                shader:setuniform4f(5, ln.r, ln.g, ln.b, ln.a)
-            end
-            shader:setuniform1f(7, 0)
-            shader:setuniform1f(8, 1)
+            if not forceBlack then shader:setuniform4f(5, ln.r, ln.g, ln.b, ln.a) end
             shader:drawtogameview(event, shaders.lineBuffer, 6)
         end
     end
@@ -231,7 +227,7 @@ function M.onRenderGameView(event)
     -- a flat height). Skipped entirely outside the overworld (e.g. dungeons).
     if cfg.greyLocked and chunks.isOverworld(prx, prz) then
         if cfg.reconstructGrey then
-            drawGreyReconstruct(event)
+            drawGreyReconstruct(event, prx, prz)
         else
             local y = world.gridHeight()
             if y then drawGreyCurtains(event, y) end

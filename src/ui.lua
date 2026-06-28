@@ -130,6 +130,7 @@ M.createIconBrowser = createIconBrowser
 -- in a tiny always-present embedded browser whose text the Lua side pushes
 -- whenever the player's chunk (or the show/hide setting) changes.
 local lastReadout = nil   -- last payload string pushed, to avoid redundant sends
+local lastRx, lastRz, lastShown   -- badge state the last payload was built from
 
 -- (re)create the badge at the current UI scale, to the right of the gear icon
 createReadoutBrowser = function()
@@ -153,10 +154,22 @@ M.createReadoutBrowser = createReadoutBrowser
 
 function M.pushChunkReadout(prx, prz)
     if not readoutBrowser then return end
+    local show = cfg.showChunkId and prx ~= nil
+    -- Fast path: the badge only changes when the player crosses a chunk boundary
+    -- or the show/hide setting flips, so skip rebuilding the JSON every frame when
+    -- nothing changed. lastReadout == nil means a fresh page still needs the state
+    -- pushed (set by createReadoutBrowser / the "ready" message), so never skip then.
+    if lastReadout then
+        if show then
+            if prx == lastRx and prz == lastRz and lastShown then return end
+        elseif lastShown == false then
+            return
+        end
+    end
+    lastRx, lastRz, lastShown = prx, prz, show
     local payload
-    if cfg.showChunkId and prx then
-        local chunkId = prx * 256 + prz
-        payload = jsonEncode({ type = "chunk", id = chunkId, rx = prx, rz = prz, show = true })
+    if show then
+        payload = jsonEncode({ type = "chunk", id = prx * 256 + prz, rx = prx, rz = prz, show = true })
     else
         payload = jsonEncode({ type = "chunk", show = false })
     end
