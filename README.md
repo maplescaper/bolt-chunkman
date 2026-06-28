@@ -94,6 +94,8 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 | --- | --- | --- |
 | **Unlocked Chunks** | Grey out locked chunks | Wall off everything except your unlocked chunks. |
 | | Unlocked chunk IDs | Comma-separated list of chunk IDs, e.g. `13108, 13109`. |
+| | Pixel-perfect grey-out (off = curtain walls) | Use the new mode that is decoupled from the camera for greying out locked chunks. |
+| | Grey out the sky (pixel-perfect mode) | Grey out the sky (pixel-perfect mode). |
 | | Enable overworld detection | If enabled, the plugin will attempt to detect if you are in the overworld or dungeon. |
 | | Overworld box corner chunk ID (SW) | Minimum chunk number from southwestern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Overworld box corner chunk ID (NE) | Maximum chunk number from northeastern-most chunk (for detecting overworld vs dungeons, etc.). |
