@@ -1,4 +1,5 @@
 -- Small pure helpers shared across the plugin: table deep-copy, rounding,
+-- panel sizing / UI-scale clamps (shared by the settings and tasks panels),
 -- colour <-> hex conversion, a minimal JSON encoder (for the browser bridge),
 -- and a 4x4 matrix inverse (for the grey shader's depth reconstruction).
 -- Nothing here touches plugin state or the bolt API.
@@ -15,6 +16,26 @@ function M.deepcopy(t)
 end
 
 function M.round(x) return math.floor(x + 0.5) end
+
+-- ---- panel sizing / UI scale (shared by the settings and tasks panels) ----
+-- Base (unscaled) panel width and default height; everything is multiplied by
+-- the UI scale at render time.
+M.PANEL_BASE_W, M.PANEL_BASE_H = 360, 560
+local PANEL_MIN_H, PANEL_MAX_H = 220, 1400
+
+-- clamp a (base, unscaled) panel height to sane bounds
+function M.clampPanelHeight(v)
+    v = tonumber(v) or M.PANEL_BASE_H
+    if v < PANEL_MIN_H then v = PANEL_MIN_H elseif v > PANEL_MAX_H then v = PANEL_MAX_H end
+    return v
+end
+
+-- clamp a UI scale factor to a sane minimum
+function M.clampUiScale(v)
+    local s = tonumber(v) or 1
+    if s < 0.1 then s = 0.1 end
+    return s
+end
 
 -- ---- colour <-> hex ----
 local function clampChannel(x)

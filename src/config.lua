@@ -48,6 +48,12 @@ M.DEFAULTS = {
 
     -- interface
     uiScale = 1.0,                                     -- scale factor for the on-screen UI (icon, badge, panel, popup)
+    panelHeight = 560,                                 -- settings panel height (base/unscaled units; drag its bottom edge)
+    tasksHeight = 560,                                 -- tasks panel height (base/unscaled units; drag its bottom edge)
+
+    -- chunk picker integration (https://source-chunk.github.io/chunk-picker-rs3)
+    chunkPickerMapId = "",                             -- your chunk-picker map id (the "?<id>" in your picker URL, e.g. "vel")
+    resolveTaskNames = true,                           -- fetch tasksMap.json to show task names (off => raw t_<id> codes)
 
     -- diagnostics
     writeDiag = false,                                 -- periodically write diag.txt (off by default: it's a disk write every ~100 frames)
@@ -70,6 +76,11 @@ M.SCHEMA = {
     { key = "lockedColour",        type = "rgba",  group = "Unlocked Chunks",    label = "Locked-chunk colour & opacity" },
     { key = "lockedWallHeight",    type = "int",   group = "Unlocked Chunks",    label = "Locked-chunk wall height (world units)", min = 1000, max = 200000, step = 1000 },
 
+    -- editor = "external": typed in a real OS window, because Bolt's in-game
+    -- (embedded) overlay browsers receive mouse events only, never keyboard.
+    { key = "chunkPickerMapId",    type = "text",  group = "Chunk Picker",       label = "Chunk Picker map ID", placeholder = "e.g. vel", editor = "external" },
+    { key = "resolveTaskNames",    type = "bool",  group = "Chunk Picker",       label = "Resolve task names (downloads task list)" },
+
     { key = "showRegionLines",     type = "bool",  group = "Region grid lines",  label = "Show region boundary lines" },
     { key = "regionRadius",        type = "int",   group = "Region grid lines",  label = "Region radius (rings out)", min = 0, max = 5, step = 1 },
     { key = "regionColour",        type = "rgb",   group = "Region grid lines",  label = "Grid line colour" },
@@ -83,6 +94,9 @@ M.SCHEMA = {
     { key = "showChunkId",         type = "bool",  group = "Chunk ID readout",   label = "Show current chunk ID" },
 
     { key = "uiScale",             type = "float", group = "Interface",          label = "UI scale", min = 0.5, max = 3, step = 0.1 },
+    -- hidden: persisted UI state, set by dragging each panel's bottom edge (not shown as a form row)
+    { key = "panelHeight",         type = "int",   group = "Interface",          label = "Settings panel height", hidden = true, min = 220, max = 1400, step = 1 },
+    { key = "tasksHeight",         type = "int",   group = "Interface",          label = "Tasks panel height",    hidden = true, min = 220, max = 1400, step = 1 },
 
     { key = "writeDiag",           type = "bool",  group = "Diagnostics",        label = "Write diag.txt" },
 }

@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: rgba(20, 18, 13, 0.96);
+    --row: rgba(255, 255, 255, 0.03);
+    --line: rgba(255, 200, 90, 0.18);
+    --gold: #ffce5a;
+    --text: #ece5d4;
+    --muted: #a89e86;
+    --green: #57e36a;       /* local check-offs (bright green) */
+    --green-dark: #3f7d36;  /* completed upstream in the picker (dark green) */
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    overflow: hidden;   /* outer page never scrolls; only #body has a (styled) scrollbar */
+    background: transparent;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    color: var(--text);
+    -webkit-user-select: none; user-select: none;
+  }
+  #wrap {
+    display: flex; flex-direction: column;
+    height: var(--vh, 100vh);   /* compensates for documentElement zoom (see script) */
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  }
+  header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(70, 56, 28, 0.95), rgba(40, 33, 19, 0.95));
+    border-bottom: 1px solid var(--line);
+    cursor: move;
+  }
+  header h1 {
+    flex: 1; margin: 0;
+    font-size: 14px; font-weight: 600; letter-spacing: .3px;
+    color: var(--gold);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  header h1 .map { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .hbtn {
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 12px;
+    padding: 4px 9px;
+    cursor: pointer;
+  }
+  .hbtn:hover { border-color: var(--gold); color: var(--gold); }
+  #close { font-size: 15px; line-height: 1; padding: 4px 8px; }
+
+  #summary {
+    padding: 7px 12px; font-size: 12px; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  #summary b { color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
+  #body::-webkit-scrollbar { width: 9px; }
+  #body::-webkit-scrollbar-thumb { background: rgba(255, 200, 90, 0.25); border-radius: 5px; }
+  #resize {
+    flex: none; height: 10px; cursor: ns-resize;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 200, 90, 0.05);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #resize::after { content: ""; width: 34px; height: 3px; border-radius: 3px; background: rgba(255, 200, 90, 0.4); }
+  #resize:hover { background: rgba(255, 200, 90, 0.16); }
+
+  .group-title {
+    display: flex; align-items: baseline; gap: 8px;
+    margin: 14px 0 6px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--gold); opacity: .85;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4px;
+  }
+  .group-title.backlog { color: var(--muted); }
+  .group-title .count { color: var(--muted); letter-spacing: 0; text-transform: none; }
+
+  .task {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    background: var(--row);
+    margin-bottom: 5px;
+    font-size: 13px;
+  }
+  .task .tick {
+    flex: none; width: 16px; height: 16px; border-radius: 4px;
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--green);
+  }
+  .task .name { flex: 1; }
+  /* strike-through inherits the text colour (currentColor) for each variant */
+  .task.done .name { text-decoration: line-through; }
+  .task.done.local    .name, .task.done.local    .tick { color: var(--green); }
+  .task.done.local    .tick { border-color: var(--green); }
+  .task.done.upstream .name, .task.done.upstream .tick { color: var(--green-dark); }
+  .task.done.upstream .tick { border-color: var(--green-dark); }
+  .task .badge {
+    flex: none; font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 6px; max-width: 45%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .task.clickable { cursor: pointer; }
+  .task.clickable:hover { background: rgba(255, 200, 90, 0.09); }
+  .task.clickable:hover .tick { border-color: var(--green); }
+
+  #msg { color: var(--muted); font-size: 13px; padding: 26px 18px; text-align: center; line-height: 1.5; }
+  #msg.err { color: #e58f8f; }
+  .sub { display: block; font-size: 11px; color: var(--muted); margin-top: 6px; }
+</style>
+<script>
+  // Scale the page content to match the (scaled) browser rectangle.
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) {
+      document.documentElement.style.zoom = s;
+      // zoom magnifies 100vh to s*100vh physically, overflowing the viewport;
+      // shrink the wrapper height by the same factor so it fits exactly.
+      document.documentElement.style.setProperty("--vh", (100 / s) + "vh");
+    }
+  })();
+</script>
+</head>
+<body>
+  <div id="wrap">
+    <header id="drag">
+      <h1>Chunk Picker <span class="map" id="mapLabel"></span></h1>
+      <button class="hbtn" id="refresh" title="Re-fetch from the Chunk Picker">&#x21bb;</button>
+      <button class="hbtn" id="close" title="Close">&times;</button>
+    </header>
+    <div id="summary" style="display:none"></div>
+    <div id="body"><div id="msg">Loading&hellip;</div></div>
+    <div id="resize" title="Drag to resize height"></div>
+  </div>
+
+  <script>
+    const params  = new URLSearchParams(location.search);
+    const MID     = (params.get("mid") || "").trim();
+    const RESOLVE = params.get("resolve") === "1";
+    const DB      = "https://chunkpickerrs3.firebaseio.com";
+    const TASKMAP_URL = "https://source-chunk.github.io/chunk-picker-rs3/tasksMap.json";
+    const TASKMAP_CACHE_KEY = "cm_tasksMap_rev_v1";
+    const PAYLOAD_VER = 2;   // bump when the cached payload shape changes
+
+    const api       = (body) => fetch("https://bolt-api/send-message", { method: "POST", body });
+    const bodyEl    = document.getElementById("body");
+    const summaryEl = document.getElementById("summary");
+    const mapLabel  = document.getElementById("mapLabel");
+
+    let nameMap   = null;   // "t_<id>" -> clean task name
+    let payload   = null;   // the current render-ready payload
+    let payloadFromCache = false;
+    let overrides = {};     // { "<mapId>": { "<cat><tid>": bool } } local check-offs
+
+    // local check-off state for a task, falling back to the picker's value
+    function ovKey(cat, tid) { return cat + "" + tid; }
+    // upstream-complete (from the picker) is always done and cannot be
+    // unchecked; local overrides only ever ADD a check-off (stored as true).
+    function localChecked(cat, t) {
+      const m = overrides[MID];
+      return !!(m && m[ovKey(cat, t.tid)] === true);
+    }
+    function effDone(cat, t) { return !!t.done || localChecked(cat, t); }
+
+    const noMapMsg = 'No map set.<span class="sub">Open <b>Settings</b> &rarr; <b>Chunk Picker</b> ' +
+      'and set your map ID (the "?&lt;id&gt;" in your picker URL).</span>';
+
+    function showMsg(text, isErr) {
+      summaryEl.style.display = "none";
+      bodyEl.innerHTML = "";
+      const d = document.createElement("div");
+      d.id = "msg";
+      if (isErr) d.className = "err";
+      d.innerHTML = text;
+      bodyEl.appendChild(d);
+    }
+
+    // The picker encodes spaces/specials in free-text values as "-_-<hex>".
+    function decodeValue(v) {
+      if (v == null) return "";
+      return String(v).replace(/-_-([0-9a-fA-F]{2})/g,
+        (_, h) => String.fromCharCode(parseInt(h, 16)));
+    }
+    // tasksMap names carry "~|...|~" wiki markup around linked words.
+    function cleanName(n) { return n.replace(/~\|/g, "").replace(/\|~/g, ""); }
+    function badgeText(val) {
+      if (val === "") return "";
+      return /^\d+$/.test(val) ? ("lvl " + val) : val;   // bare number = skill level
+    }
+    function taskLabel(tid) { return (nameMap && nameMap[tid]) ? nameMap[tid] : tid; }
+
+    function relTime(ms) {
+      const s = Math.max(0, (Date.now() - ms) / 1000);
+      if (s < 60) return "just now";
+      if (s < 3600) return Math.floor(s / 60) + "m ago";
+      if (s < 86400) return Math.floor(s / 3600) + "h ago";
+      return Math.floor(s / 86400) + "d ago";
+    }
+
+    // Fetch (once) the name<-id table. ~6 MB, so cache it in localStorage when
+    // the webview allows it; otherwise keep it for this page's lifetime only.
+    async function loadNameMap() {
+      if (!RESOLVE || nameMap) return;
+      try {
+        const cached = localStorage.getItem(TASKMAP_CACHE_KEY);
+        if (cached) { nameMap = JSON.parse(cached); return; }
+      } catch (e) { /* storage unavailable; fall through to fetch */ }
+      const res = await fetch(TASKMAP_URL);
+      if (!res.ok) throw new Error("task list HTTP " + res.status);
+      const data = await res.json();   // { "<name>": "t_<id>", ... }
+      const rev = {};
+      for (const name in data) rev[data[name]] = cleanName(name);
+      nameMap = rev;
+      try { localStorage.setItem(TASKMAP_CACHE_KEY, JSON.stringify(rev)); } catch (e) {}
+    }
+
+    // ---- rendering (from a normalized payload, cached or freshly built) ----
+    function addGroupTitle(parent, label, count, isBacklog) {
+      const t = document.createElement("div");
+      t.className = "group-title" + (isBacklog ? " backlog" : "");
+      t.innerHTML = "<span>" + label + "</span>" +
+        (count != null ? '<span class="count">' + count + "</span>" : "");
+      parent.appendChild(t);
+    }
+    function addTaskRow(parent, cat, t, checkable) {
+      const upstream = !!t.done;                       // completed in the picker
+      const isDone = upstream || (checkable && localChecked(cat, t));
+      const clickable = checkable && !upstream;        // upstream can't be unchecked
+      const row = document.createElement("div");
+      row.className = "task" + (isDone ? " done " + (upstream ? "upstream" : "local") : "") +
+        (clickable ? " clickable" : "");
+      const tick = document.createElement("span");
+      tick.className = "tick";
+      tick.textContent = isDone ? "✓" : "";
+      row.appendChild(tick);
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = t.name;
+      row.appendChild(name);
+      if (t.val) {
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = t.val;
+        badge.title = t.val;
+        row.appendChild(badge);
+      }
+      if (clickable) {
+        row.title = "Click to mark " + (isDone ? "not done" : "done");
+        row.addEventListener("click", () => toggleTask(cat, t));
+      } else if (upstream) {
+        row.title = "Completed in the Chunk Picker";
+      }
+      parent.appendChild(row);
+    }
+
+    // Toggle a task's local check-off, persist it, and re-render in place.
+    // Upstream-complete tasks are locked done and can't be toggled.
+    function toggleTask(cat, t) {
+      if (!t.tid || t.done) return;
+      let m = overrides[MID];
+      if (!m) { m = {}; overrides[MID] = m; }
+      const k = ovKey(cat, t.tid);
+      if (m[k] === true) delete m[k]; else m[k] = true;
+      if (Object.keys(m).length === 0) delete overrides[MID];
+      api("checks\n" + JSON.stringify(overrides));
+      const scroll = bodyEl.scrollTop;
+      renderPayload(payload, payloadFromCache);
+      bodyEl.scrollTop = scroll;
+    }
+
+    function renderPayload(p, fromCache) {
+      payload = p; payloadFromCache = fromCache;
+      const hasBacklog = p.backlog && p.backlog.length;
+      if (!p.active.length && !hasBacklog) { showMsg("No active tasks on this map yet."); return; }
+      bodyEl.innerHTML = "";
+      let total = 0, done = 0;
+      for (const g of p.active) {
+        addGroupTitle(bodyEl, g.cat, g.tasks.length, false);
+        for (const t of g.tasks) {
+          total++; if (effDone(g.cat, t)) done++;
+          addTaskRow(bodyEl, g.cat, t, true);
+        }
+      }
+      if (hasBacklog) {
+        addGroupTitle(bodyEl, "Backlog", null, true);
+        for (const g of p.backlog) {
+          addGroupTitle(bodyEl, g.cat, g.tasks.length, true);
+          for (const t of g.tasks) addTaskRow(bodyEl, g.cat, t, false);
+        }
+      }
+      summaryEl.style.display = "block";
+      const when = p.fetchedAt
+        ? ' &middot; <span title="' + new Date(p.fetchedAt).toLocaleString() + '">updated ' +
+            relTime(p.fetchedAt) + (fromCache ? " (cached)" : "") + "</span>"
+        : "";
+      summaryEl.innerHTML = "Active: <b>" + done + "</b> / <b>" + total + "</b> done" +
+        (p.resolve ? "" : ' <span style="opacity:.7">(names off)</span>') + when;
+    }
+
+    // ---- build a normalized payload from the live Chunk Picker data ----
+    async function fetchPayload() {
+      const res = await fetch(DB + "/maps/" + encodeURIComponent(MID) + "/chunkinfo.json");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const info = await res.json();
+      if (!info) return null;   // map id not found
+      // Names are a nicety; fall back to raw t_<id> codes if the list won't load.
+      try { await loadNameMap(); } catch (e) { nameMap = null; }
+
+      const checked = info.checkedChallenges || {};
+      let total = 0, done = 0;
+      const groups = (sections, withDone) => {
+        const out = [];
+        for (const cat of Object.keys(sections).sort()) {
+          const entries = sections[cat] || {};
+          const ids = Object.keys(entries);
+          if (!ids.length) continue;
+          const tasks = [];
+          for (const tid of ids) {
+            const isDone = withDone && !!(checked[cat] && checked[cat][tid]);
+            if (withDone) { total++; if (isDone) done++; }
+            tasks.push({ tid, name: taskLabel(tid), val: badgeText(decodeValue(entries[tid])), done: isDone });
+          }
+          out.push({ cat, tasks });
+        }
+        return out;
+      };
+      const active  = groups(info.activeTasks || {}, true);
+      const backlog = groups(info.backlog || {}, false);
+      return { ver: PAYLOAD_VER, mapId: MID, resolve: RESOLVE, fetchedAt: Date.now(), active, backlog, stats: { total, done } };
+    }
+
+    // Fetch fresh, render, and hand the result to Lua to cache per-character.
+    async function fetchAndStore() {
+      if (!MID) { showMsg(noMapMsg); return; }
+      showMsg("Fetching tasks for <b>" + MID + "</b>&hellip;");
+      try {
+        const p = await fetchPayload();
+        if (!p) {
+          showMsg("No data for map <b>" + MID + "</b>." +
+            '<span class="sub">Check the map ID is correct.</span>');
+          return;
+        }
+        renderPayload(p, false);
+        api("store\n" + JSON.stringify(p));
+      } catch (err) {
+        showMsg("Couldn't load tasks.<span class=\"sub\">" +
+          String(err && err.message || err) +
+          "</span><span class=\"sub\">The picker database must be reachable from the game client.</span>", true);
+      }
+    }
+
+    // Lua answers our "ready" with the per-character cache (or null). Use it if
+    // it still matches the current map id and resolve setting; else re-fetch.
+    window.addEventListener("message", (event) => {
+      if (typeof event.data !== "object" || !event.data) return;
+      if (event.data.type !== "pluginMessage") return;
+      let msg;
+      try { msg = JSON.parse(new TextDecoder().decode(event.data.content)); }
+      catch (err) { return; }
+      if (msg.type !== "cache") return;
+      overrides = (msg.overrides && typeof msg.overrides === "object") ? msg.overrides : {};
+      if (!MID) { showMsg(noMapMsg); return; }
+      const blob = msg.blob;
+      if (blob && blob.ver === PAYLOAD_VER && blob.mapId === MID &&
+          !!blob.resolve === RESOLVE && blob.active) {
+        renderPayload(blob, true);
+      } else {
+        fetchAndStore();
+      }
+    });
+
+    document.getElementById("close").addEventListener("click", () => {
+      fetch("https://bolt-api/close-request");
+    });
+    document.getElementById("refresh").addEventListener("click", fetchAndStore);
+
+    // drag the panel by its header
+    document.getElementById("drag").addEventListener("mousedown", (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target.closest(".hbtn")) return;
+      fetch("https://bolt-api/start-reposition?h=0&v=0");
+    });
+
+    // drag the bottom edge to resize height (h=0 keeps width fixed, v=1 = bottom)
+    document.getElementById("resize").addEventListener("mousedown", (ev) => {
+      if (ev.button !== 0) return;
+      fetch("https://bolt-api/start-reposition?h=0&v=1");
+    });
+
+    window.addEventListener("DOMContentLoaded", () => {
+      mapLabel.textContent = MID ? ("— " + MID) : "";
+      api("ready");   // ask Lua for the cached data first
+    });
+  </script>
+</body>
+</html>

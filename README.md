@@ -21,8 +21,8 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
 - **Region / chunk grid overlay**: draws the RuneScape map-square grid (64×64 tiles per
   region) on the ground around you.
 - **Grey out locked chunks**: everything outside your list of unlocked chunks is walled
-  off with vertical "curtains" along the frontier of your unlocked area. Contiguous unlocked
-  chunks stay fully clear inside; only the outer perimeter is curtained.
+  off along the frontier of your unlocked area. Contiguous unlocked
+  chunks stay fully clear inside; only the outer perimeter is darkened.
 - **Click to unlock**: `Ctrl + Alt + middle-click` any chunk on the ground to toggle it
   in or out of your unlocked list. Unlocking a new chunk pops a celebratory card:
 
@@ -111,6 +111,15 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 
 ## Chunks
 
+### Chunk ID source
+
+These chunk IDs map to the chunk picker IDs [found here](https://github.com/source-chunk/chunk-picker-rs3). If this
+updates before this plugin, then use the `Overworld box corner` settings to adjust the plugin overworld detection.
+
+### Chunk Picker Tasks Integration
+
+You can import the RS3 Chunk Picker tasks into a separate tasks panel to display them in game.
+
 ### Adding existing chunks
 
 There are two ways to do this. Either go through the world, and add your known unlocked chunks with `Ctrl+Alt+middle-click`
@@ -133,11 +142,6 @@ these are the following:
 | Lost Grove | S/W: 5206   N/E: 5721 | S/W: 7471   N/E: 7986 | 2265 (Subtract) |
 
 It seems to be possible to add/subtract the difference between the S/W chunk IDs to map from the chunk picker to the plugin.
-
-### Chunk ID source
-
-These chunk IDs map to the chunk picker IDs [found here](https://github.com/source-chunk/chunk-picker-rs3). If this
-updates before this plugin, then use the `Overworld box corner` settings to adjust the plugin overworld detection.
 
 ## Manual Installation
 

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: rgba(20, 18, 13, 1);
+    --line: rgba(255, 200, 90, 0.25);
+    --gold: #ffce5a;
+    --text: #ece5d4;
+    --muted: #a89e86;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    color: var(--text);
+  }
+  #wrap { display: flex; flex-direction: column; height: 100vh; padding: 16px; gap: 12px; }
+  h1 { margin: 0; font-size: 15px; color: var(--gold); font-weight: 600; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: -4px; }
+  input[type=text] {
+    width: 100%; padding: 9px 11px; font-size: 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text); outline: none;
+  }
+  input[type=text]:focus { border-color: var(--gold); }
+  input[type=text]::placeholder { color: var(--muted); opacity: .7; }
+  .btns { margin-top: auto; display: flex; justify-content: flex-end; gap: 8px; }
+  button {
+    border: 1px solid var(--line); background: rgba(0, 0, 0, 0.25);
+    color: var(--text); border-radius: 6px; font-size: 13px;
+    padding: 7px 16px; cursor: pointer;
+  }
+  button:hover { border-color: var(--gold); color: var(--gold); }
+  button.primary { background: var(--gold); color: #2a2415; border-color: var(--gold); font-weight: 600; }
+</style>
+<script>
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) document.documentElement.style.zoom = s;
+  })();
+</script>
+</head>
+<body>
+  <div id="wrap">
+    <h1 id="title">Edit</h1>
+    <div class="sub" id="hint"></div>
+    <input type="text" id="field" autocomplete="off" spellcheck="false">
+    <div class="btns">
+      <button id="cancel">Cancel</button>
+      <button id="save" class="primary">Save</button>
+    </div>
+  </div>
+  <script>
+    const api   = (body) => fetch("https://bolt-api/send-message", { method: "POST", body });
+    const field = document.getElementById("field");
+    const title = document.getElementById("title");
+    const hint  = document.getElementById("hint");
+
+    function save()   { api("save\n" + field.value); }
+    function cancel() { api("cancel"); }
+
+    window.addEventListener("message", (event) => {
+      if (typeof event.data !== "object" || !event.data) return;
+      if (event.data.type !== "pluginMessage") return;
+      let msg;
+      try { msg = JSON.parse(new TextDecoder().decode(event.data.content)); }
+      catch (err) { return; }
+      if (msg.type !== "init") return;
+      title.textContent = msg.label || "Edit";
+      hint.textContent = msg.placeholder ? ("Example: " + msg.placeholder) : "";
+      field.placeholder = msg.placeholder || "";
+      field.value = msg.value || "";
+      field.focus();
+      field.select();
+    });
+
+    field.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); save(); }
+      else if (ev.key === "Escape") { ev.preventDefault(); cancel(); }
+    });
+    document.getElementById("save").addEventListener("click", save);
+    document.getElementById("cancel").addEventListener("click", cancel);
+
+    window.addEventListener("DOMContentLoaded", () => api("ready"));
+  </script>
+</body>
+</html>

@@ -14,6 +14,7 @@ local config   = require("config")
 local settings = require("settings")
 local chunks   = require("chunks")
 local world    = require("world")
+local tasks    = require("tasks.client")
 
 local cfg        = settings.cfg
 local jsonEncode = util.jsonEncode
@@ -24,13 +25,11 @@ local M = {}
 local UI_MARGIN = 10
 local ICON_BASE = 44
 local READOUT_BASE_W = 150
-local PANEL_BASE_W, PANEL_BASE_H = 360, 560
+local PANEL_BASE_W = util.PANEL_BASE_W
 local CONGRATS_BASE_W, CONGRATS_BASE_H = 460, 230
 
 local function uiScale()
-    local s = tonumber(cfg.uiScale) or 1
-    if s < 0.1 then s = 0.1 end
-    return s
+    return util.clampUiScale(cfg.uiScale)
 end
 
 -- plugin page URL carrying the current UI scale, so each embedded page can zoom
@@ -41,8 +40,13 @@ end
 
 -- the embedded browsers; (re)built when the scale changes
 local iconBrowser, panelBrowser, readoutBrowser, congratsBrowser
+-- a real OS window for text entry (embedded overlays get no keyboard input)
+local textEditorBrowser
+-- a setting key whose external editor was requested from the panel but must be
+-- opened outside that message callback (see M.pump / openTextEditor)
+local pendingEdit
 -- forward declarations: onPanelMessage rebuilds these when the scale changes
-local createIconBrowser, createReadoutBrowser
+local createIconBrowser, createReadoutBrowser, openTextEditor
 
 -- push the current settings values to the open panel (if any)
 function M.refreshPanelValues()
@@ -66,12 +70,19 @@ local function onPanelMessage(msg)
                 type = "init", schema = config.SCHEMA, values = settings.valuesPayload(),
             }))
         end
+    elseif msg == "tasks" then
+        tasks.toggle()
+    elseif msg:match("^editext\n") then
+        -- defer: opening the external window here (inside this browser message
+        -- callback) hard-freezes the client; M.pump() does it next frame.
+        pendingEdit = msg:match("^editext\n(.*)$")
     elseif msg == "reset" then
         settings.resetDefaults()
         chunks.rebuildGreyChunks()
         settings.saveSettings()
         createIconBrowser()
         createReadoutBrowser()
+        tasks.rebuildIfOpen()
         M.refreshPanelValues()
     else
         local key, val = msg:match("^set\n([^\n]*)\n(.*)$")
@@ -83,9 +94,76 @@ local function onPanelMessage(msg)
             if key == "uiScale" then
                 createIconBrowser()
                 createReadoutBrowser()
+                tasks.rebuildIfOpen()
+            end
+            -- the tasks page is built from the map id / resolve toggle, so
+            -- recreate it (if open) to pick up the change.
+            if key == "chunkPickerMapId" or key == "resolveTaskNames" then
+                tasks.rebuildIfOpen()
             end
             settings.saveSettings()
         end
+    end
+end
+
+-- ---- external text editor ----
+-- Embedded overlay browsers only receive mouse events, so text settings can't
+-- be typed into the in-game panel. Schema entries with editor="external" are
+-- edited here instead: a real OS browser window (createbrowser, not the
+-- embedded variant) that has keyboard focus. It returns the new value over the
+-- same message bridge, which we apply and persist like any other setting.
+local function closeTextEditor()
+    if textEditorBrowser then
+        textEditorBrowser:close()
+        textEditorBrowser = nil
+    end
+end
+
+openTextEditor = function(key)
+    local e = config.SCHEMA_BY_KEY[key]
+    if not e then return end
+    closeTextEditor()
+    local s = uiScale()
+    local w = math.floor(440 * s)
+    local h = math.floor(210 * s)
+    local ok, b = pcall(bolt.createbrowser, w, h, pageUrl("textedit.html"))
+    if not ok or not b then
+        print("[chunk-man] could not open text editor: " .. tostring(b))
+        return
+    end
+    textEditorBrowser = b
+    b:onmessage(function(m)
+        if m == "ready" then
+            b:sendmessage(jsonEncode({
+                type = "init", key = key, label = e.label,
+                value = tostring(cfg[key] or ""), placeholder = e.placeholder or "",
+            }))
+        elseif m == "cancel" then
+            closeTextEditor()
+        else
+            local v = m:match("^save\n(.*)$")
+            if v ~= nil then
+                settings.applySet(key, v)
+                if key == "unlockedChunkIds" then chunks.rebuildGreyChunks() end
+                if key == "chunkPickerMapId" then tasks.rebuildIfOpen() end
+                settings.saveSettings()
+                M.refreshPanelValues()
+                closeTextEditor()
+            end
+        end
+    end)
+    b:oncloserequest(closeTextEditor)
+end
+
+-- Service deferred work that must not run inside a browser message callback.
+-- Creating the external editor window (createbrowser) from within the settings
+-- panel's onmessage handler hard-freezes the client, so that handler only sets
+-- pendingEdit and we actually open the window here, called once per frame.
+function M.pump()
+    if pendingEdit then
+        local key = pendingEdit
+        pendingEdit = nil
+        openTextEditor(key)
     end
 end
 
@@ -95,7 +173,7 @@ local function openPanel()
     local px = UI_MARGIN
     local py = UI_MARGIN + math.floor(ICON_BASE * s) + 8
     local pw = math.floor(PANEL_BASE_W * s)
-    local ph = math.floor(PANEL_BASE_H * s)
+    local ph = math.floor(util.clampPanelHeight(cfg.panelHeight) * s)
     local ok, b = pcall(bolt.createembeddedbrowser, px, py, pw, ph, pageUrl("panel.html"))
     if not ok or not b then
         print("[chunk-man] could not open settings panel: " .. tostring(b))
@@ -104,6 +182,16 @@ local function openPanel()
     panelBrowser = b
     panelBrowser:onmessage(onPanelMessage)
     panelBrowser:oncloserequest(closePanel)
+    -- persist the height when the user drags the panel's bottom edge
+    panelBrowser:onreposition(function(event)
+        local _, _, _, h = event:xywh()
+        if not h or h <= 0 then return end
+        local base = util.clampPanelHeight(math.floor(h / uiScale() + 0.5))
+        if base ~= cfg.panelHeight then
+            cfg.panelHeight = base
+            settings.saveSettings()
+        end
+    end)
 end
 
 local function togglePanel()

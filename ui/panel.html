@@ -15,6 +15,7 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; height: 100%;
+    overflow: hidden;   /* outer page never scrolls; only #body has a (styled) scrollbar */
     background: transparent;
     font-family: "Segoe UI", Tahoma, sans-serif;
     color: var(--text);
@@ -22,7 +23,7 @@
   }
   #wrap {
     display: flex; flex-direction: column;
-    height: 100vh;
+    height: var(--vh, 100vh);   /* compensates for documentElement zoom (see script) */
     background: var(--bg);
     border: 1px solid var(--line);
     border-radius: 12px;
@@ -55,6 +56,14 @@
   #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
   #body::-webkit-scrollbar { width: 9px; }
   #body::-webkit-scrollbar-thumb { background: rgba(255, 200, 90, 0.25); border-radius: 5px; }
+  #resize {
+    flex: none; height: 10px; cursor: ns-resize;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 200, 90, 0.05);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #resize::after { content: ""; width: 34px; height: 3px; border-radius: 3px; background: rgba(255, 200, 90, 0.4); }
+  #resize:hover { background: rgba(255, 200, 90, 0.16); }
   .group-title {
     margin: 14px 0 6px;
     font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
@@ -121,7 +130,12 @@
   // Scale the page content to match the (scaled) browser rectangle.
   (function () {
     var s = parseFloat(new URLSearchParams(location.search).get("s"));
-    if (s && s > 0) document.documentElement.style.zoom = s;
+    if (s && s > 0) {
+      document.documentElement.style.zoom = s;
+      // zoom magnifies 100vh to s*100vh physically, overflowing the viewport;
+      // shrink the wrapper height by the same factor so it fits exactly.
+      document.documentElement.style.setProperty("--vh", (100 / s) + "vh");
+    }
   })();
 </script>
 </head>
@@ -129,10 +143,12 @@
   <div id="wrap">
     <header id="drag">
       <h1>Chunk Man &mdash; Settings</h1>
+      <button class="hbtn" id="tasks" title="Show active Chunk Picker tasks">Tasks</button>
       <button class="hbtn" id="reset" title="Restore defaults">Reset</button>
       <button class="hbtn" id="close" title="Close">&times;</button>
     </header>
     <div id="body"><div id="empty">Loading settings&hellip;</div></div>
+    <div id="resize" title="Drag to resize height"></div>
   </div>
 
   <script>
@@ -186,6 +202,24 @@
     }
 
     function buildText(ctl, e) {
+      // Embedded overlay browsers get no keyboard input, so fields flagged
+      // editor:"external" are shown as a button that opens a real OS window
+      // (handled Lua-side) for typing; the button shows the current value.
+      if (e.editor === "external") {
+        const btn = document.createElement("button");
+        btn.className = "hbtn";
+        btn.style.minWidth = "150px";
+        btn.style.textAlign = "left";
+        const show = (v) => {
+          btn.textContent = (v && v !== "") ? v : (e.placeholder || "Click to set…");
+          btn.style.color = (v && v !== "") ? "var(--text)" : "var(--muted)";
+        };
+        show("");
+        btn.addEventListener("click", () => api("editext\n" + e.key));
+        ctl.appendChild(btn);
+        controls[e.key] = { set: (v) => show(v == null ? "" : v) };
+        return;
+      }
       const input = document.createElement("input");
       input.type = "text";
       input.className = "text";
@@ -229,6 +263,7 @@
       body.innerHTML = "";
       let lastGroup = null;
       for (const e of schema) {
+        if (e.hidden) continue;   // persisted UI state, not a form control
         if (e.group !== lastGroup) {
           lastGroup = e.group;
           const g = document.createElement("div");
@@ -266,6 +301,7 @@
       fetch("https://bolt-api/close-request");
     });
     document.getElementById("reset").addEventListener("click", () => api("reset"));
+    document.getElementById("tasks").addEventListener("click", () => api("tasks"));
 
     // drag the panel by its header
     const drag = document.getElementById("drag");
@@ -273,6 +309,12 @@
       if (ev.button !== 0) return;
       if (ev.target.closest(".hbtn")) return; // let header buttons work
       fetch("https://bolt-api/start-reposition?h=0&v=0");
+    });
+
+    // drag the bottom edge to resize height (h=0 keeps width fixed, v=1 = bottom)
+    document.getElementById("resize").addEventListener("mousedown", (ev) => {
+      if (ev.button !== 0) return;
+      fetch("https://bolt-api/start-reposition?h=0&v=1");
     });
 
     window.addEventListener("DOMContentLoaded", () => api("ready"));

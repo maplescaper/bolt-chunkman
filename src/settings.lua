@@ -23,6 +23,10 @@ local cfg = M.cfg
 -- until a character is known it points at the legacy shared file.
 M.SETTINGS_FILE = config.LEGACY_SETTINGS_FILE
 
+-- The current character's id (set by resolveSettingsFile once logged in), so
+-- other modules can name their own per-character files. nil before login.
+M.charId = nil
+
 function M.resetDefaults()
     -- reset in place so settings.cfg keeps its identity for other modules
     for k in pairs(cfg) do cfg[k] = nil end
@@ -145,6 +149,7 @@ function M.resolveSettingsFile()
     id = tostring(id):gsub("[^%w]", "")
     if id == "" or id == loadedCharId then return false end
     loadedCharId = id
+    M.charId = id
     M.SETTINGS_FILE = "chunkman-settings-" .. id .. ".cfg"
     return true
 end

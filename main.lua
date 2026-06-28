@@ -15,6 +15,7 @@
 --   render   - the draw passes and the render callbacks
 --   ui       - the embedded browsers (gear icon, settings panel, readout, popup)
 --   input    - ctrl+alt+middle-click to (un)lock a chunk
+--   tasks/   - the Chunk Picker tasks panel (reads the picker's Firebase map)
 --
 -- The line shader (resources/lineshader.*) and its vertex buffer are vendored
 -- verbatim from JasperSurmont's bolt-questhelper (AGPL).
@@ -93,6 +94,9 @@ bolt.onswapbuffers(function(event)
         ui.createReadoutBrowser()
         ui.refreshPanelValues()
     end
+
+    -- open any UI deferred out of a browser message callback (avoids a freeze)
+    ui.pump()
 
     world.frameCount = world.frameCount + 1
     world.doGroundScan = (world.frameCount % GROUND_REFRESH_FRAMES == 0)
