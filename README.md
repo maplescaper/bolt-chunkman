@@ -76,13 +76,6 @@ This has only been tested on Windows. It's unknown if it works on Mac and Linux.
 - Windows with 4k resolution using Default interface and custom interface with different game view size.
 - Windows with 1080p resolution same scenarios as above.
 
-### Known Issues
-
-This section will contain some known issues/limitations that won't be fixed.
-- When orienting the camera to be outside of the chunk you're in, it'll look like those chunks are unlocked and
-  that your character is outside of the chunk bounds. This is a limitation of how the chunks are greyed-out and
-  won't be fixed. **If you are outside of your chunk bounds, the whole game view will be greyed out.**
-
 ## Settings
 
 Click the gear icon at the top-left to open the panel. Most settings apply live and are
@@ -164,7 +157,7 @@ The updater URL above points at a GitHub release asset. To cut a release:
 2. Build the plugin tarball (plugin files only so no README/images/`.git`/etc.):
 
    ```sh
-   tar -czf bolt-chunkman-<version>.tar.gz bolt.json main.lua resources ui
+   tar -czf bolt-chunkman-<version>.tar.gz bolt.json main.lua resources ui src
    ```
 
 3. Compute its checksum and put it in `meta.json` (`sha256` field), and update the `url`
