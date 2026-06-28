@@ -886,6 +886,13 @@ bolt.onswapbuffers(function(event)
         resetDefaults()
         loadSettings()
         rebuildGreyChunks()
+        -- the always-on UI was created at startup with the pre-login scale;
+        -- rebuild it so the character's saved uiScale takes effect
+        createIconBrowser()
+        createReadoutBrowser()
+        if panelBrowser then
+            panelBrowser:sendmessage(jsonEncode({ type = "values", values = valuesPayload() }))
+        end
     end
 
     frameCount = frameCount + 1
