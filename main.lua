@@ -42,8 +42,8 @@ local DEFAULTS = {
     -- grey out the whole world EXCEPT a hand-picked list of "unlocked" chunks
     greyLocked = true,                                 -- grey everything but the unlocked chunks listed below
     overworldDetection = true,                         -- master switch: detect the overworld at all (off => treat everywhere as overworld)
-    overworldMinChunkId = 7446,                        -- one corner of the overworld region box (SW)
-    overworldMaxChunkId = 18247,                       -- opposite corner of the overworld region box (NE)
+    overworldMinChunkId = 6950,                        -- one corner of the overworld region box (SW)
+    overworldMaxChunkId = 15424,                       -- opposite corner of the overworld region box (NE)
     unlockedChunkIds = "",                             -- comma-separated unlocked chunk IDs, e.g. "13108, 13109"
     clickUnlock = true,                                -- ctrl+alt+middle-click a chunk to toggle it
     showUnlockPopup = true,                            -- show the "chunk unlocked" congratulations popup
@@ -314,6 +314,7 @@ end
 -- regionZ). Some overworld areas sit outside the main box, so they're listed
 -- here so the locked-chunk grey-out still applies there.
 local EXTRA_OVERWORLD_BOXES = {
+    { 5206, 5721 },
     { 7085, 10427 },
     { 20512, 22824 },
     { 13332, 14876 },

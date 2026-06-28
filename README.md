@@ -126,7 +126,7 @@ Alternatively, get a CSV list of the chunk IDs and add those to the `unlockedChu
 on Windows. **Make sure to backup your config file! If you ever delete the plugin, your unlocked chunks will also be 
 removed.**
 
-Note that **if you've unlocked chunks in Anachronia, the Arc Islands (Waiko, Goshima, etc.), or Havenhythe, these chunk IDs map
+Note that **if you've unlocked chunks in Anachronia, the Arc Islands (Waiko, Goshima, etc.), Lost Grove, or Havenhythe, these chunk IDs map
 differently** than the main world and don't use the same IDs in the plugin as in the chunk picker. The bounding square map for
 these are the following:
 
@@ -135,6 +135,7 @@ these are the following:
 | Arc Islands | S/W: 7085   N/E: 10427 | S/W: 14870   N/E: 18212 | 7785 (Subtract) |
 | Anachronia | S/W: 20512   N/E: 22824 | S/W: 14655   N/E: 16967 | 5857 (Add) |
 | Havenhythe | S/W: 13332   N/E: 14876 | S/W: 16176   N/E: 17720 | 2844 (Subtract) |
+| Lost Grove | S/W: 5206   N/E: 5721 | S/W: 7471   N/E: 7986 | 2265 (Subtract) |
 
 It seems to be possible to add/subtract the difference between the S/W chunk IDs to map from the chunk picker to the plugin.
 
