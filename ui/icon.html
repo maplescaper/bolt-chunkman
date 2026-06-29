@@ -43,7 +43,37 @@
     </svg>
   </div>
   <script>
-    document.getElementById("btn").addEventListener("click", function () {
+    // Click toggles the settings panel; click-and-drag moves the whole icon.
+    // We don't start the drag until the pointer has moved past a small
+    // threshold, so a plain click still fires "toggle" and never repositions.
+    // Once dragging, Bolt (via start-reposition) takes over the move and reports
+    // the new geometry to the Lua side through onreposition.
+    var btn = document.getElementById("btn");
+    var DRAG_THRESHOLD = 4;   // px of movement before a press becomes a drag
+    var armed = false, dragging = false, downX = 0, downY = 0;
+
+    btn.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;   // left button only
+      armed = true;
+      dragging = false;
+      downX = e.clientX;
+      downY = e.clientY;
+    });
+
+    window.addEventListener("mousemove", function (e) {
+      if (!armed || dragging) return;
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > DRAG_THRESHOLD) {
+        dragging = true;
+        // h=0&v=0 => move the whole browser (no edge resize)
+        fetch("https://bolt-api/start-reposition?h=0&v=0");
+      }
+    });
+
+    window.addEventListener("mouseup", function () { armed = false; });
+
+    btn.addEventListener("click", function () {
+      // swallow the click that ends a drag; otherwise toggle the panel
+      if (dragging) { dragging = false; return; }
       fetch("https://bolt-api/send-message", { method: "POST", body: "toggle" });
     });
   </script>

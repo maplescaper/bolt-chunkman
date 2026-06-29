@@ -50,6 +50,8 @@ M.DEFAULTS = {
     uiScale = 1.0,                                     -- scale factor for the on-screen UI (icon, badge, panel, popup)
     panelHeight = 560,                                 -- settings panel height (base/unscaled units; drag its bottom edge)
     tasksHeight = 560,                                 -- tasks panel height (base/unscaled units; drag its bottom edge)
+    iconX = 10,                                        -- gear icon top-left X (screen px; drag the icon to move it)
+    iconY = 10,                                        -- gear icon top-left Y (screen px; drag the icon to move it)
 
     -- chunk picker integration (https://source-chunk.github.io/chunk-picker-rs3)
     chunkPickerMapId = "",                             -- your chunk-picker map id (the "?<id>" in your picker URL, e.g. "vel")
@@ -97,6 +99,8 @@ M.SCHEMA = {
     -- hidden: persisted UI state, set by dragging each panel's bottom edge (not shown as a form row)
     { key = "panelHeight",         type = "int",   group = "Interface",          label = "Settings panel height", hidden = true, min = 220, max = 1400, step = 1 },
     { key = "tasksHeight",         type = "int",   group = "Interface",          label = "Tasks panel height",    hidden = true, min = 220, max = 1400, step = 1 },
+    { key = "iconX",               type = "int",   group = "Interface",          label = "Gear icon X", hidden = true, min = 0, max = 10000, step = 1 },
+    { key = "iconY",               type = "int",   group = "Interface",          label = "Gear icon Y", hidden = true, min = 0, max = 10000, step = 1 },
 
     { key = "writeDiag",           type = "bool",  group = "Diagnostics",        label = "Write diag.txt" },
 }

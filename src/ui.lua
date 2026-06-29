@@ -45,8 +45,12 @@ local textEditorBrowser
 -- a setting key whose external editor was requested from the panel but must be
 -- opened outside that message callback (see M.pump / openTextEditor)
 local pendingEdit
+-- a deferred "move the chunk-ID badge to follow the dragged icon", serviced by
+-- M.pump once the icon's drag has settled (see createIconBrowser / M.pump)
+local iconMovePending = false
+local pumpIconX, pumpIconY
 -- forward declarations: onPanelMessage rebuilds these when the scale changes
-local createIconBrowser, createReadoutBrowser, openTextEditor
+local createIconBrowser, createReadoutBrowser, openTextEditor, iconPos
 
 -- push the current settings values to the open panel (if any)
 function M.refreshPanelValues()
@@ -110,6 +114,9 @@ local function onPanelMessage(msg)
         if key then
             settings.applySet(key, val)
             if key == "unlockedChunkIds" then chunks.rebuildGreyChunks() end
+            -- create/destroy the readout browser so it stops capturing clicks
+            -- over its area when the badge is turned off (and comes back when on)
+            if key == "showChunkId" then createReadoutBrowser() end
             -- rescale the always-on UI immediately; the open panel keeps its
             -- current size and picks up the new scale next time it's opened.
             if key == "uiScale" then
@@ -188,13 +195,26 @@ function M.pump()
         pendingEdit = nil
         openTextEditor(key)
     end
+    -- Move the chunk-ID badge to follow the icon, but only once the icon drag has
+    -- settled: while dragging, onreposition keeps changing iconX/iconY each frame,
+    -- so we wait for a frame where it didn't change before recreating the badge.
+    if iconMovePending then
+        if cfg.iconX == pumpIconX and cfg.iconY == pumpIconY then
+            iconMovePending = false
+            createReadoutBrowser()
+        else
+            pumpIconX, pumpIconY = cfg.iconX, cfg.iconY
+        end
+    end
 end
 
 local function openPanel()
     if panelBrowser then return end
     local s = uiScale()
-    local px = UI_MARGIN
-    local py = UI_MARGIN + math.floor(ICON_BASE * s) + 8
+    -- open just below the gear icon, wherever it currently sits
+    local ix, iy, sz = iconPos()
+    local px = ix
+    local py = iy + sz + 8
     local pw = math.floor(PANEL_BASE_W * s)
     local ph = math.floor(util.clampPanelHeight(cfg.panelHeight) * s)
     local ok, b = pcall(bolt.createembeddedbrowser, px, py, pw, ph, pageUrl("panel.html"))
@@ -222,14 +242,39 @@ local function togglePanel()
 end
 
 -- ---- gear icon ----
--- (re)create the gear icon at the current UI scale
+-- The gear icon's saved top-left (cfg.iconX/iconY) clamped so it stays fully
+-- on-screen, so a position saved at a larger resolution can't strand it offscreen.
+iconPos = function()
+    local sz = math.floor(ICON_BASE * uiScale())
+    local okw, w, h = pcall(bolt.gamewindowsize)
+    local sw = (okw and w and w > 0) and w or ((world.lastWinW and world.lastWinW > 0) and world.lastWinW or 1280)
+    local sh = (okw and h and h > 0) and h or ((world.lastWinH and world.lastWinH > 0) and world.lastWinH or 720)
+    local x = math.max(0, math.min(cfg.iconX or UI_MARGIN, sw - sz))
+    local y = math.max(0, math.min(cfg.iconY or UI_MARGIN, sh - sz))
+    return x, y, sz
+end
+
+-- Dragging the icon fires onreposition every frame; recreating the badge each of
+-- those frames would blink it, so the badge move is deferred to M.pump (via the
+-- iconMovePending flag) and only applied once the position has settled.
+-- (re)create the gear icon at the current UI scale and saved position
 createIconBrowser = function()
     if iconBrowser then iconBrowser:close(); iconBrowser = nil end
-    local sz = math.floor(ICON_BASE * uiScale())
+    local ix, iy, sz = iconPos()
     local ok, err = pcall(function()
-        iconBrowser = bolt.createembeddedbrowser(UI_MARGIN, UI_MARGIN, sz, sz, pageUrl("icon.html"))
+        iconBrowser = bolt.createembeddedbrowser(ix, iy, sz, sz, pageUrl("icon.html"))
         iconBrowser:onmessage(function(msg)
             if msg == "toggle" then togglePanel() end
+        end)
+        -- The icon page begins a move (start-reposition) when dragged; Bolt moves
+        -- the browser live and reports the new geometry here. Persist it and flag
+        -- the badge to follow once the drag settles (handled in M.pump).
+        iconBrowser:onreposition(function(event)
+            local x, y = event:xywh()
+            if not x or not y then return end
+            cfg.iconX, cfg.iconY = util.round(x), util.round(y)
+            settings.saveSettings()
+            iconMovePending = true
         end)
     end)
     if not ok then print("[chunk-man] settings icon init failed: " .. tostring(err)) end
@@ -243,15 +288,22 @@ M.createIconBrowser = createIconBrowser
 local lastReadout = nil   -- last payload string pushed, to avoid redundant sends
 local lastRx, lastRz, lastShown   -- badge state the last payload was built from
 
--- (re)create the badge at the current UI scale, to the right of the gear icon
+-- (re)create the badge at the current UI scale, to the right of the gear icon.
+-- When the readout is turned off we destroy the browser entirely rather than
+-- just hiding the badge in CSS: an embedded browser keeps capturing mouse clicks
+-- over its rectangle even while transparent, so leaving it up would swallow
+-- clicks in that area of the game view.
 createReadoutBrowser = function()
     if readoutBrowser then readoutBrowser:close(); readoutBrowser = nil end
+    if not cfg.showChunkId then return end
     local s = uiScale()
-    local rx = UI_MARGIN + math.floor(ICON_BASE * s) + 6
+    -- sit just to the right of the gear icon, wherever the user has dragged it
+    local ix, iy, sz = iconPos()
+    local rx = ix + sz + 6
     local rw = math.floor(READOUT_BASE_W * s)
     local rh = math.floor(ICON_BASE * s)
     local ok, err = pcall(function()
-        readoutBrowser = bolt.createembeddedbrowser(rx, UI_MARGIN, rw, rh, pageUrl("readout.html"))
+        readoutBrowser = bolt.createembeddedbrowser(rx, iy, rw, rh, pageUrl("readout.html"))
     end)
     if not ok then print("[chunk-man] chunk readout init failed: " .. tostring(err)) end
     if readoutBrowser then
