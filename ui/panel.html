@@ -64,6 +64,19 @@
   }
   #editor-warn.show { display: block; }
   #editor-warn b { color: #fff; }
+  /* always-on standing reminder: the grey-out only renders with Bloom at Medium
+     or lower. Styled as a gold info banner to match the panel (distinct from the
+     red editor warning above). */
+  #editor-warn-bloom {
+    flex: none;
+    padding: 8px 12px;
+    background: rgba(255, 200, 90, 0.08);
+    border-bottom: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    color: var(--text);
+    font-size: 12px; line-height: 1.35;
+  }
+  #editor-warn-bloom b { color: var(--gold); font-weight: 600; }
   #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
   #body::-webkit-scrollbar { width: 9px; }
   #body::-webkit-scrollbar-thumb { background: rgba(255, 200, 90, 0.25); border-radius: 5px; }
@@ -158,6 +171,9 @@
       <button class="hbtn" id="reset" title="Restore defaults">Reset</button>
       <button class="hbtn" id="close" title="Close">&times;</button>
     </header>
+    <div id="editor-warn-bloom">
+      <b>Make sure to change the Bloom setting to Medium or lower in your graphics options. Bloom set to High will break this plugin.</b>
+    </div>
     <div id="editor-warn">
       <b>Text editor opened.</b> It may be hidden behind the game window.
     </div>

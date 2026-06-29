@@ -59,13 +59,14 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
 7. Once the account is in the lobby, return to the `Plugin Menu` in the Bolt Launcher. You should see your account's name in the section on the left-side.
 9. Click the account name, and then enable `Auto` and turn the toggle on (should be light blue once enabled). At this point, it should be enabled for you in your game client.
 
-You'll know it's enabled and installed if you see a cog icon on the top-left corner. If it's not there, try restarting the game client.
+You'll know it's enabled and installed if you see a cog icon on the top-left corner. If it's not there, try restarting the game client. Also, make sure to set your in-game **Bloom graphics option to Medium or lower.**
 
 ### First Use
 
 When you first run the game with this plugin enabled, the **game view should be greyed out** since you likely don't
 have any chunks unlocked yet. Hit `Ctrl + Alt + middle-click` under your character to unlock the chunk you're
-currently in.
+currently in. **If it's not greyed out, be sure to change your Bloom graphics option in-game to Medium or lower. This plugin will not
+work when Bloom is set to High.**
 
 If the settings interface on the top-left is too big/small, there's a UI scale option at the bottom of the settings
 that you can use to adjust the size. On 4k monitors, this may be necessary (1.5x works well for me).
@@ -78,6 +79,8 @@ the chunk picker directly.
 This has only been tested on Windows. It's unknown if it works on Mac and Linux. Specific tested scenarios:
 - Windows with 4k resolution using Default interface and custom interface with different game view size.
 - Windows with 1080p resolution same scenarios as above.
+
+This plugin **does not work when the in-game Bloom graphics option is set to High**. Change it to medium or lower.
 
 ## Settings
 
