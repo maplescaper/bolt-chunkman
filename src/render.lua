@@ -62,25 +62,84 @@ end
 -- that could actually be on screen are always included.
 local KEEP_VEC4_MAX = 64                 -- 64 vec4s => up to 256 chunks uploaded
 local KEEP_MAX = KEEP_VEC4_MAX * 4
-local function drawGreyReconstruct(event, prx, prz)
-    local keepIds = chunks.nearestKeepIds(prx, prz, KEEP_MAX)
-    local n = #keepIds
-    if not shaders.grey or n == 0 then return end
-    local inv = util.invertMat4({ world.viewproj:get() })
-    if not inv then return end
-    local sw, sh = bolt.gamewindowsize()
-    local grey = shaders.grey
-    grey:setuniform4f(1, cfg.lockedColour.r, cfg.lockedColour.g, cfg.lockedColour.b, cfg.lockedColour.a)
+local CHUNKS_PER_AXIS = config.CHUNKS_PER_AXIS
+local GREY_GRID_RADIUS = config.GREY_GRID_RADIUS
+
+-- Inverse viewproj is needed every frame to reconstruct world position, but when
+-- the camera is idle the matrix is bit-identical frame to frame. Cache the last
+-- matrix and its inverse so an idle camera skips the ~200-multiply inversion (and
+-- its table churn) entirely; only a moved camera pays for it.
+local cachedVP, cachedInvVP
+local function invViewproj()
+    local m = { world.viewproj:get() }
+    if cachedVP then
+        local same = true
+        for i = 1, 16 do if cachedVP[i] ~= m[i] then same = false; break end end
+        if same then return cachedInvVP end
+    end
+    cachedVP, cachedInvVP = m, util.invertMat4(m)
+    return cachedInvVP
+end
+
+-- The non-camera uniforms (tint, screen size, keep-list, sky flag, keep bbox)
+-- only change on a settings edit, a window resize, or when the player crosses
+-- into a region that reselects the nearest keep-list. GL keeps uniform state on
+-- the program between draws, so re-upload this block only when one of its inputs
+-- actually changes instead of every frame (saving up to ~64 setuniform4f calls
+-- per frame). keepIds reference identity is a reliable "did the list change"
+-- signal: both nearestKeepIds and rebuildGreyChunks replace the table wholesale.
+local up = {}
+local function uploadStatic(grey, keepIds, n, sw, sh, prx, prz)
+    local c = cfg.lockedColour
+    local sky = cfg.greySky and 1 or 0
+    if up.keep == keepIds and up.n == n and up.sw == sw and up.sh == sh
+        and up.r == c.r and up.g == c.g and up.b == c.b and up.a == c.a and up.sky == sky
+        and up.prx == prx and up.prz == prz then
+        return
+    end
+
+    -- region bounding box of the uploaded keep set, for the shader's early-out
+    local rxMin, rzMin, rxMax, rzMax = math.huge, math.huge, -math.huge, -math.huge
+    for i = 1, n do
+        local id = keepIds[i]
+        local rx, rz = math.floor(id / CHUNKS_PER_AXIS), id % CHUNKS_PER_AXIS
+        if rx < rxMin then rxMin = rx end
+        if rx > rxMax then rxMax = rx end
+        if rz < rzMin then rzMin = rz end
+        if rz > rzMax then rzMax = rz end
+    end
+
+    grey:setuniform4f(1, c.r, c.g, c.b, c.a)
     grey:setuniform2f(2, sw, sh)
-    grey:setuniformmatrix4f(3, false, unpack(inv))
-    grey:setuniformdepthbuffer(7, event)
+    grey:setuniform4f(4, rxMin, rzMin, rxMax, rzMax)
+    -- (2r+1)x(2r+1) grey window centred on the player's region; chunks outside it
+    -- are left untouched so the grey-out never extends beyond this grid.
+    grey:setuniform4f(5, prx - GREY_GRID_RADIUS, prz - GREY_GRID_RADIUS,
+        prx + GREY_GRID_RADIUS, prz + GREY_GRID_RADIUS)
     grey:setuniform1f(8, n)
-    grey:setuniform1f(9, cfg.greySky and 1 or 0)
+    grey:setuniform1f(9, sky)
     for j = 0, math.ceil(n / 4) - 1 do
         grey:setuniform4f(10 + j,
             keepIds[j * 4 + 1] or -1, keepIds[j * 4 + 2] or -1,
             keepIds[j * 4 + 3] or -1, keepIds[j * 4 + 4] or -1)
     end
+
+    up.keep, up.n, up.sw, up.sh = keepIds, n, sw, sh
+    up.r, up.g, up.b, up.a, up.sky = c.r, c.g, c.b, c.a, sky
+    up.prx, up.prz = prx, prz
+end
+
+local function drawGreyReconstruct(event, prx, prz)
+    local keepIds = chunks.nearestKeepIds(prx, prz, KEEP_MAX)
+    local n = #keepIds
+    if not shaders.grey or n == 0 then return end
+    local inv = invViewproj()
+    if not inv then return end
+    local sw, sh = bolt.gamewindowsize()
+    local grey = shaders.grey
+    uploadStatic(grey, keepIds, n, sw, sh, prx, prz)
+    grey:setuniformmatrix4f(3, false, unpack(inv))
+    grey:setuniformdepthbuffer(7, event)
     grey:drawtogameview(event, shaders.fillBuffer, 6)
 end
 
@@ -198,6 +257,10 @@ function M.onRender3d(event)
     world.haveVPThisFrame = true
 
     if cfg.useFixedHeight then return end
+    -- mode A (pixel-perfect grey) reconstructs height per-pixel and never reads
+    -- world.groundY; only curtain mode and the region lines need the scan, so skip
+    -- the per-frame terrain sampling when neither is in play.
+    if cfg.reconstructGrey and not cfg.showRegionLines then return end
     if not world.doGroundScan or world.terrainScannedThisFrame or not world.haveMM then return end
     if event:animated() then return end
     local vc = event:vertexcount()

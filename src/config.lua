@@ -9,6 +9,7 @@ M.UNITS_PER_TILE = 512
 M.TILES_PER_REGION = 64
 M.CHUNKS_PER_AXIS = 256       -- chunk ID = regionX * 256 + regionZ
 M.GRID_STEP_TILES = 8         -- boundary subdivision (for clipping behind camera)
+M.GREY_GRID_RADIUS = 4        -- pixel-perfect grey-out only covers a (2r+1)x(2r+1) grid of regions centered on the player (4 => 9x9); chunks further out are left untouched
 M.GROUND_REFRESH_FRAMES = 30
 M.GROUND_MAX_SAMPLES = 200
 M.LEGACY_SETTINGS_FILE = "chunkman-settings.cfg"  -- old shared (all-account) file; migrated per-character on first load
