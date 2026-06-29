@@ -37,9 +37,7 @@ end
 -- Per-character cache of the last fetched task data, so the panel opens
 -- instantly (and offline) and only hits the network on first use or a manual
 -- refresh. The page fetches and resolves the data, then sends it here as a JSON
--- blob; we store it verbatim and hand it straight back next time. (We never
--- parse it -- the page validates that the cached map id / settings still match
--- and re-fetches itself if not.)
+-- blob; we store it verbatim and hand it straight back next time.
 local function cacheFile()
     return "chunkman-tasks-" .. (settings.charId or "shared") .. ".json"
 end
@@ -84,6 +82,14 @@ local function onTasksMessage(m)
         settings.saveSettings()
         return
     end
+end
+
+-- Clear the per-character fetched-task cache so the next open re-fetches from
+-- the Chunk Picker (and re-imports the unlocked set). Stored as an empty blob,
+-- which loadconfig/blobOrNull hand back as "null". The local check-off overrides
+-- are deliberately left alone: they are user progress, not fetched cache.
+function M.clearCache()
+    bolt.saveconfig(cacheFile(), "")
 end
 
 -- plugin page URL carrying the UI scale (for zoom), the map id to read, and
@@ -141,6 +147,14 @@ function M.rebuildIfOpen()
         closeTasks()
         M.open()
     end
+end
+
+-- Force the tasks panel open for the current map id, recreating it if it was
+-- already open. Opening kicks off the page's fetch, which is what imports the
+-- chunk picker info (chunks, and tasks).
+function M.openForCurrentMap()
+    closeTasks()
+    M.open()
 end
 
 return M

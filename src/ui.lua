@@ -107,6 +107,9 @@ local function onPanelMessage(msg)
         settings.saveSettings()
         createIconBrowser()
         createReadoutBrowser()
+        -- drop the cached task list before rebuilding so a reopened panel sees an
+        -- empty cache and re-fetches (and re-imports the unlocked set)
+        tasks.clearCache()
         tasks.rebuildIfOpen()
         M.refreshPanelValues()
     else
@@ -175,7 +178,12 @@ openTextEditor = function(key)
             if v ~= nil then
                 settings.applySet(key, v)
                 if key == "unlockedChunkIds" then chunks.rebuildGreyChunks() end
-                if key == "chunkPickerMapId" then tasks.rebuildIfOpen() end
+                -- entering a map id opens the tasks panel so its fetch imports
+                -- the unlocked chunks; a cleared id just refreshes any open panel
+                if key == "chunkPickerMapId" then
+                    local mid = tostring(cfg.chunkPickerMapId or ""):gsub("[^%w]", "")
+                    if mid ~= "" then tasks.openForCurrentMap() else tasks.rebuildIfOpen() end
+                end
                 settings.saveSettings()
                 M.refreshPanelValues()
                 closeTextEditor()
