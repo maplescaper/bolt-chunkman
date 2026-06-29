@@ -36,43 +36,42 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
   settings panel. Most settings apply instantly, but others may need a client restart.
 - **Chunk Picker integration**: accessed from the `Tasks` button in the settings panel. Input
   the map ID from your [chunk picker](https://source-chunk.github.io/chunk-picker-rs3) map
-  and the tasks panel will be populated with your active and backlogged tasks. See the
-  [chunks](#chunks) section for more informaion.
+  to pull in your unlocked chunks, and have the tasks panel populated with your active/
+  backlogged tasks. See the [chunks](#chunks) section for more informaion.
 
 ## Installation
 
-To use this plugin, first install the Bolt Launcher. After that, when you first open it, go to the cog icon
-at the top-right and navigate to the RS3 section to enable the plugin loader. Restart Bolt after this (might
-not be needed).
+Here are some instructions for installing the plugin if you've never used bolt before:
 
-Make sure you're logged in to your account, and before pressing play, go to the `Plugin Menu` underneath the
-play button to add the plugin. Select the `From URL` option, paste this install URL into the text box and then
+1. First, [install the Bolt Launcher](https://codeberg.org/Adamcake/Bolt#installing).
+2. After that, when you first open it, **go to the cog icon at the top-right and navigate to the RS3 section to enable the plugin loader**. Restart Bolt after this (might
+not be needed).
+3. Make sure you're logged in to your account, and before pressing play, go to the `Plugin Menu` underneath the
+play button to add the plugin.
+4. Select the `From URL` option, paste this install URL into the text box and then
 hit the green checkmark to load it in:
 ```
 https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
 ```
 
-You should now see the `Chunk Man Plugin` in the list of loaded plugins. Before it can be used, you need to
-enable it for the account that will be using it. Exit the `Plugin Menu` and press `Play` for the account you
-want to enable it on.
+5. You should now see the `Chunk Man Plugin` in the list of loaded plugins. Before it can be used, you need to enable it for the account that will be using it.
+6. Exit the `Plugin Menu` and press `Play` for the account you want to enable it on.
+7. Once the account is in the lobby, return to the `Plugin Menu` in the Bolt Launcher. You should see your account's name in the section on the left-side.
+9. Click the account name, and then enable `Auto` and turn the toggle on (should be light blue once enabled). At this point, it should be enabled for you in your game client.
 
-Once the account is in the lobby, return to the `Plugin Menu` in the Bolt Launcher. You
-should see your account's name in the section on the left-side. Click the account name, and then enable
-`Auto` and turn the toggle on (should be light blue once enabled). At this point, it should be enabled for you
-in your game client. You'll know it's enabled if you see a cog icon on the top-left corner. If it's not there,
-try restarting the game client.
+You'll know it's enabled and installed if you see a cog icon on the top-left corner. If it's not there, try restarting the game client.
 
 ### First Use
 
 When you first run the game with this plugin enabled, the **game view should be greyed out** since you likely don't
 have any chunks unlocked yet. Hit `Ctrl + Alt + middle-click` under your character to unlock the chunk you're
-currently in. Depending on your camera orientation and your position in the world, you may need to move the camera
-to see that the chunk has been unlocked (the popup should show too).
+currently in.
 
 If the settings interface on the top-left is too big/small, there's a UI scale option at the bottom of the settings
 that you can use to adjust the size. On 4k monitors, this may be necessary (1.5x works well for me).
 
-To add an existing list of chunk IDs to the plugin, see the [Chunks](#chunks) section below.
+To add an existing list of chunk IDs to the plugin, see the [Chunks](#chunks) section below. These can be imported from
+the chunk picker directly.
 
 ### Caveats
 
@@ -123,11 +122,11 @@ updates before this plugin, then use the `Overworld box corner` settings to adju
 
 ### Chunk Picker Tasks Integration
 
-You can import the [RS3 Chunk Picker](https://source-chunk.github.io/chunk-picker-rs3) tasks into a separate tasks panel
-to display them in game. These are downloaded once and cached until you request a manual refresh. You can access this
-panel by clicking on `Tasks` at the top-right of the Settings panel. With no map ID defined, it'll prompt you to add one
-first. **Note that the text editor to input the map ID might open in the background.** Once the map ID is input, you
-should see the tasks panel populated with all of your existing active/backlogged tasks like so:
+You can import the [RS3 Chunk Picker](https://source-chunk.github.io/chunk-picker-rs3) unlocked chunks and your tasks
+into a separate tasks panel to display them in game. These are downloaded once and cached until you request a manual
+refresh. You can access this panel by clicking on `Tasks` at the top-right of the Settings panel. With no map ID
+defined, it'll prompt you to add one first. **Note that the text editor to input the map ID might open in the background.**
+Once the map ID is input, you should see the tasks panel populated with all of your existing active/backlogged tasks like so:
 
 ![Chunk Tasks panel](images/chunkman_plugin_tasks.png)
 
@@ -137,8 +136,9 @@ marked in bright green are the ones marked as completed locally and have not bee
 
 ### Adding existing chunks
 
-There are two ways to do this. Either go through the world, and add your known unlocked chunks with `Ctrl+Alt+middle-click`
-by clicking anywhere in the chunk.
+There are three ways to do this. First one is to go through the world, and add your known unlocked chunks with `Ctrl+Alt+middle-click`
+by clicking anywhere in the chunk. Second option (recommended), import them directly from the chunk picker by adding your
+map ID to the `Tasks` panel found in the top-right of the settings panel (click on the cog).
 
 Alternatively, get a CSV list of the chunk IDs and add those to the `unlockedChunkIds` variable in the
 `chunkman-settings.cfg` file found in the plugins config directory (usually `%AppData%\bolt-launcher\config\plugins`

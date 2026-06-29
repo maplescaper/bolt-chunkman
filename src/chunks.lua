@@ -82,6 +82,22 @@ local function regionInBox(prx, prz, lo, hi)
     return prx >= rxA and prx <= rxB and prz >= rzA and prz <= rzB
 end
 
+-- Convert a Chunk Picker chunk ID to the Bolt chunk ID. Most IDs already agree
+-- between the two; a few regions (Arc Islands, Anachronia, Havenhythe, Lost
+-- Grove) sit at a constant offset in the picker. config.REGION_REMAP lists each
+-- as { pickerSW, pickerNE, offset }: decode the picker ID to a region, and if it
+-- falls inside one of those boxes, add that box's offset. The box test is 2D
+-- (regionInBox) on purpose.
+function M.pickerToBolt(id)
+    local prx, prz = math.floor(id / CHUNKS_PER_AXIS), id % CHUNKS_PER_AXIS
+    for _, r in ipairs(config.REGION_REMAP) do
+        if regionInBox(prx, prz, r[1], r[2]) then
+            return id + r[3]
+        end
+    end
+    return id
+end
+
 -- Is the player currently in the overworld? The overworld is made up of one or
 -- more rectangular boxes of regions, each defined by two opposite-corner chunk
 -- IDs. The primary box comes from the configured corners; additional boxes are

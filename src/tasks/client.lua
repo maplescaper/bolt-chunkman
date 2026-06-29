@@ -16,6 +16,7 @@
 local bolt     = require("bolt")
 local util     = require("util")
 local settings = require("settings")
+local chunks   = require("chunks")
 
 local cfg = settings.cfg
 
@@ -68,6 +69,21 @@ local function onTasksMessage(m)
     if json then bolt.saveconfig(cacheFile(), json); return end
     local checks = m:match("^checks\n(.*)$")
     if checks then bolt.saveconfig(overridesFile(), checks); return end
+    -- The page sends the picker's unlocked chunk IDs (raw picker IDs) after a
+    -- fetch. Convert each to its Bolt chunk ID and overwrite the unlocked set,
+    -- making the picker the source of truth for what's unlocked.
+    local unlocked = m:match("^unlocked\n(.*)$")
+    if unlocked then
+        local ids = {}
+        for tok in unlocked:gmatch("[^,%s]+") do
+            local id = tonumber(tok)
+            if id and id >= 0 then ids[#ids + 1] = tostring(chunks.pickerToBolt(math.floor(id))) end
+        end
+        cfg.unlockedChunkIds = table.concat(ids, ",")
+        chunks.rebuildGreyChunks()
+        settings.saveSettings()
+        return
+    end
 end
 
 -- plugin page URL carrying the UI scale (for zoom), the map id to read, and

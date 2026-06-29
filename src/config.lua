@@ -115,4 +115,18 @@ M.EXTRA_OVERWORLD_BOXES = {
     { 13332, 14876 },
 }
 
+-- Chunk Picker -> Bolt chunk-ID remap. The picker stores a handful of regions at
+-- a different ID offset than Bolt; everywhere else the two agree. Each entry is
+-- { pickerSW, pickerNE, offset }: opposite-corner chunk IDs of the region's box
+-- *in picker IDs*, plus the value to ADD to a picker ID inside that box to get
+-- the Bolt ID. The membership test is 2D (see chunks.pickerToBolt). The Arc
+-- Islands and Anachronia picker ranges overlap as plain number ranges but not as
+-- region boxes, so a scalar lo<=id<=hi test would misclassify them.
+M.REGION_REMAP = {
+    { 14870, 18212, -7785 },   -- Arc Islands
+    { 14655, 16967,  5857 },   -- Anachronia
+    { 16176, 17720, -2844 },   -- Havenhythe
+    {  7471,  7986, -2265 },   -- Lost Grove
+}
+
 return M

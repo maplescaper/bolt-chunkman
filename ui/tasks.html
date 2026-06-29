@@ -355,6 +355,16 @@
         }
         renderPayload(p, false);
         api("store\n" + JSON.stringify(p));
+        // Also sync the picker's unlocked chunks. These are raw picker IDs; Lua
+        // remaps the offset regions to Bolt IDs and overwrites the unlocked set.
+        // Best-effort: a failure here must not break the task listing above.
+        try {
+          const ures = await fetch(DB + "/maps/" + encodeURIComponent(MID) + "/chunks/unlocked.json");
+          if (ures.ok) {
+            const u = await ures.json();
+            api("unlocked\n" + (u ? Object.keys(u).join(",") : ""));
+          }
+        } catch (e) { /* unlocked sync is best-effort */ }
       } catch (err) {
         showMsg("Couldn't load tasks.<span class=\"sub\">" +
           String(err && err.message || err) +
