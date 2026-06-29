@@ -235,9 +235,28 @@ end
 -- drift as the camera moves. Last-write-wins gives the matrix that matches the
 -- game view that's actually composited this frame. While here (and not pinned to
 -- a fixed height), sample the terrain to find the ground height under the player.
+-- Last camera position we captured the viewproj for, and the frame we did it on.
+-- Used to avoid re-allocating the viewproj matrix on every single 3D pass.
+local capFrame, capX, capY, capZ = -1, nil, nil, nil
+
 function M.onRender3d(event)
-    world.viewproj = event:viewprojmatrix()
-    world.haveVPThisFrame = true
+    -- event:viewprojmatrix() allocates a matrix object every call. An open vista
+    -- (e.g. looking out over a waterfall to the sky) draws thousands of 3D passes
+    -- per frame, and capturing on each one was thrashing the GC. But the viewproj
+    -- is the *camera* matrix: identical across every pass that shares a camera, and
+    -- only the off-screen/minimap passes use a different one. cameraposition() is
+    -- allocation-free, so use it as a cheap guard and only pay for viewprojmatrix()
+    -- when the camera actually changes (about once per frame instead of once per
+    -- draw call). We still re-capture at least once each frame (the frame check),
+    -- and the last distinct camera wins, which is the main view, exactly as before.
+    -- Animated passes share the same camera, so skip them outright.
+    if event:animated() then return end
+    local cx, cy, cz = event:cameraposition()
+    if world.frameCount ~= capFrame or cx ~= capX or cy ~= capY or cz ~= capZ then
+        world.viewproj = event:viewprojmatrix()
+        world.haveVPThisFrame = true
+        capFrame, capX, capY, capZ = world.frameCount, cx, cy, cz
+    end
 
     if cfg.useFixedHeight then return end
     -- mode A (pixel-perfect grey) reconstructs height per-pixel and never reads
@@ -245,7 +264,6 @@ function M.onRender3d(event)
     -- the per-frame terrain sampling when neither is in play.
     if cfg.reconstructGrey and not cfg.showRegionLines then return end
     if not world.doGroundScan or world.terrainScannedThisFrame or not world.haveMM then return end
-    if event:animated() then return end
     local vc = event:vertexcount()
     if vc < 1000 then return end
     world.terrainScannedThisFrame = true
