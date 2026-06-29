@@ -18,17 +18,12 @@ local M = {}
 -- render loop never has to parse the string. These are the "unlocked" chunks
 -- that stay visible; everything else is greyed. keepRegions is the list;
 -- keepSet is an "rx,rz" -> true lookup for the frontier test; keepIds is a flat
--- list of unlocked chunk IDs (for the grey shader). Rebuilt whenever the setting
--- changes (after load, reset, or a panel edit).
+-- list of unlocked chunk IDs (used to paint the grey shader's keep texture).
+-- Rebuilt whenever the setting changes (after load, reset, or a panel edit); the
+-- table is replaced wholesale, so its identity doubles as a "did it change?" flag.
 M.keepRegions = {}
 M.keepSet = {}
 M.keepIds = {}
-
--- Cache for nearestKeepIds: the subset uploaded to the grey shader, plus the
--- player region it was computed for. Invalidated (nearPrx = nil) whenever the
--- unlocked set is rebuilt.
-M.nearIds = {}
-local nearPrx, nearPrz
 
 function M.rebuildGreyChunks()
     local list, set, ids = {}, {}, {}
@@ -46,30 +41,6 @@ function M.rebuildGreyChunks()
         end
     end
     M.keepRegions, M.keepSet, M.keepIds = list, set, ids
-    nearPrx = nil
-end
-
--- The grey shader's uniform array holds a bounded number of chunk ids and runs a
--- per-pixel loop over them, so the keep list can't be uploaded unbounded. But
--- only chunks near the camera can ever appear on screen, so when there are more
--- unlocked chunks than fit we upload the maxN *nearest* the player rather than an
--- arbitrary first-N (which could drop a chunk right next to us while keeping far
--- ones that are never visible). The result is recomputed only when the player's
--- region or the unlocked set changes.
-function M.nearestKeepIds(prx, prz, maxN)
-    if #M.keepIds <= maxN then return M.keepIds end
-    if prx == nearPrx and prz == nearPrz then return M.nearIds end
-    local order = {}
-    for i = 1, #M.keepRegions do
-        local rg = M.keepRegions[i]
-        local dx, dz = rg.rx - prx, rg.rz - prz
-        order[i] = { id = M.keepIds[i], d = dx * dx + dz * dz }
-    end
-    table.sort(order, function(a, b) return a.d < b.d end)
-    local near = {}
-    for i = 1, maxN do near[i] = order[i].id end
-    M.nearIds, nearPrx, nearPrz = near, prx, prz
-    return near
 end
 
 -- True if region (prx, prz) falls inside the box whose opposite corners are the

@@ -54,14 +54,11 @@ end
 -- position from the depth buffer (using the inverse camera matrix), works out
 -- which chunk it lies in, and greys it unless that chunk is unlocked. Because
 -- every pixel is judged by where it actually is, the grey boundary follows the
--- terrain exactly and never floats or drifts with the camera. Nothing to draw if no chunk is
--- unlocked (the whole-view dim handles "everything locked" instead).
--- Hard ceiling on the keep list: the shader's uKeep array is vec4[64] and its
--- per-pixel loop is bounded the same way. When more chunks are unlocked than fit,
--- chunks.nearestKeepIds selects the KEEP_MAX nearest the player, so the chunks
--- that could actually be on screen are always included.
-local KEEP_VEC4_MAX = 64                 -- 64 vec4s => up to 256 chunks uploaded
-local KEEP_MAX = KEEP_VEC4_MAX * 4
+-- terrain exactly and never floats or drifts with the camera. Nothing to draw if
+-- no chunk is unlocked (the whole-view dim handles "everything locked" instead).
+-- The "is this chunk unlocked?" test is a single texelFetch into a 256x256 keep
+-- texture (shaders.keepTex), so it is O(1) per pixel with no cap on the unlock
+-- count.
 local CHUNKS_PER_AXIS = config.CHUNKS_PER_AXIS
 local GREY_GRID_RADIUS = config.GREY_GRID_RADIUS
 
@@ -81,63 +78,49 @@ local function invViewproj()
     return cachedInvVP
 end
 
--- The non-camera uniforms (tint, screen size, keep-list, sky flag, keep bbox)
--- only change on a settings edit, a window resize, or when the player crosses
--- into a region that reselects the nearest keep-list. GL keeps uniform state on
--- the program between draws, so re-upload this block only when one of its inputs
--- actually changes instead of every frame (saving up to ~64 setuniform4f calls
--- per frame). keepIds reference identity is a reliable "did the list change"
--- signal: both nearestKeepIds and rebuildGreyChunks replace the table wholesale.
-local up = {}
-local function uploadStatic(grey, keepIds, n, sw, sh, prx, prz)
-    local c = cfg.lockedColour
-    local sky = cfg.greySky and 1 or 0
-    if up.keep == keepIds and up.n == n and up.sw == sw and up.sh == sh
-        and up.r == c.r and up.g == c.g and up.b == c.b and up.a == c.a and up.sky == sky
-        and up.prx == prx and up.prz == prz then
-        return
-    end
-
-    -- region bounding box of the uploaded keep set, for the shader's early-out
-    local rxMin, rzMin, rxMax, rzMax = math.huge, math.huge, -math.huge, -math.huge
-    for i = 1, n do
-        local id = keepIds[i]
+-- Repaint the keep texture (one white texel per unlocked chunk) whenever the
+-- unlocked set changes, and (re)bind it to the grey shader's sampler. The set
+-- only changes on load / reset / a panel edit, so this is rare; chunks.keepIds is
+-- replaced wholesale on rebuild, so its table identity is the change signal.
+-- Returns false if the texture isn't available (shader pass then skips).
+local KEEP_WHITE = "\xFF\xFF\xFF\xFF"
+local keepTexBuiltFor
+local function refreshKeepTex(grey)
+    local tex = shaders.keepTex
+    if not tex then return false end
+    local ids = chunks.keepIds
+    if keepTexBuiltFor == ids then return true end
+    tex:clear(0, 0, 0, 0)
+    for i = 1, #ids do
+        local id = ids[i]
         local rx, rz = math.floor(id / CHUNKS_PER_AXIS), id % CHUNKS_PER_AXIS
-        if rx < rxMin then rxMin = rx end
-        if rx > rxMax then rxMax = rx end
-        if rz < rzMin then rzMin = rz end
-        if rz > rzMax then rzMax = rz end
+        if rx >= 0 and rx < CHUNKS_PER_AXIS and rz >= 0 and rz < CHUNKS_PER_AXIS then
+            tex:subimage(rx, rz, 1, 1, KEEP_WHITE)
+        end
     end
+    grey:setuniformsurface(6, tex)
+    keepTexBuiltFor = ids
+    return true
+end
 
+local function drawGreyReconstruct(event, prx, prz)
+    if not shaders.grey or #chunks.keepIds == 0 then return end
+    local inv = invViewproj()
+    if not inv then return end
+    local grey = shaders.grey
+    if not refreshKeepTex(grey) then return end
+
+    -- The inverse camera matrix and depth buffer are the only genuinely per-frame
+    -- inputs. The rest (tint, sky flag, grey window) are a few cheap uniforms that
+    -- change rarely, so just set them each frame rather than tracking dirtiness.
+    local c = cfg.lockedColour
     grey:setuniform4f(1, c.r, c.g, c.b, c.a)
-    grey:setuniform2f(2, sw, sh)
-    grey:setuniform4f(4, rxMin, rzMin, rxMax, rzMax)
     -- (2r+1)x(2r+1) grey window centred on the player's region; chunks outside it
     -- are left untouched so the grey-out never extends beyond this grid.
     grey:setuniform4f(5, prx - GREY_GRID_RADIUS, prz - GREY_GRID_RADIUS,
         prx + GREY_GRID_RADIUS, prz + GREY_GRID_RADIUS)
-    grey:setuniform1f(8, n)
-    grey:setuniform1f(9, sky)
-    for j = 0, math.ceil(n / 4) - 1 do
-        grey:setuniform4f(10 + j,
-            keepIds[j * 4 + 1] or -1, keepIds[j * 4 + 2] or -1,
-            keepIds[j * 4 + 3] or -1, keepIds[j * 4 + 4] or -1)
-    end
+    grey:setuniform1f(9, cfg.greySky and 1 or 0)
 
-    up.keep, up.n, up.sw, up.sh = keepIds, n, sw, sh
-    up.r, up.g, up.b, up.a, up.sky = c.r, c.g, c.b, c.a, sky
-    up.prx, up.prz = prx, prz
-end
-
-local function drawGreyReconstruct(event, prx, prz)
-    local keepIds = chunks.nearestKeepIds(prx, prz, KEEP_MAX)
-    local n = #keepIds
-    if not shaders.grey or n == 0 then return end
-    local inv = invViewproj()
-    if not inv then return end
-    local sw, sh = bolt.gamewindowsize()
-    local grey = shaders.grey
-    uploadStatic(grey, keepIds, n, sw, sh, prx, prz)
     grey:setuniformmatrix4f(3, false, unpack(inv))
     grey:setuniformdepthbuffer(7, event)
     grey:drawtogameview(event, shaders.fillBuffer, 6)
@@ -294,11 +277,14 @@ function M.onRenderGameView(event)
         else
             local y = world.gridHeight()
             if y then drawGreyCurtains(event, y) end
-        end
-        -- if you're standing in a locked chunk, dim the entire camera view. With
-        -- nothing unlocked, every chunk is locked, so this dims the world.
-        if cfg.dimLockedView and not chunks.keepSet[prx .. "," .. prz] then
-            drawLockedViewDim(event)
+            -- Curtain mode only greys chunk frontiers, so standing inside a locked
+            -- chunk shows no grey. Dim the whole camera view to signal it. (With
+            -- nothing unlocked, every chunk is locked, so this dims the world.)
+            -- Pixel-perfect mode greys the locked chunk you're standing in
+            -- per-pixel, so it needs no separate dim.
+            if cfg.dimLockedView and not chunks.keepSet[prx .. "," .. prz] then
+                drawLockedViewDim(event)
+            end
         end
     end
 

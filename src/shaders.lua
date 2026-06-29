@@ -11,7 +11,8 @@
 --           the depth buffer and greys it by the chunk it belongs to. Reuses the
 --           fill buffer (same unit-square geometry).
 
-local bolt = require("bolt")
+local bolt   = require("bolt")
+local config = require("config")
 
 local M = {}
 
@@ -49,6 +50,18 @@ do
         M.grey:setattribute(0, 1, true, false, 2, 0, 2)
     end)
     if not ok then print("[chunk-man] grey shader init failed: " .. tostring(err)) end
+end
+
+-- ---- keep lookup texture (one texel per chunk: opaque => unlocked) ----
+-- A 256x256 (CHUNKS_PER_AXIS) RGBA surface the grey shader samples with
+-- texelFetch(rx, rz) to answer "is this chunk unlocked?" in O(1). Surfaces are
+-- created GL_NEAREST / CLAMP_TO_EDGE and start fully transparent (all locked);
+-- render.refreshKeepTex paints the unlocked chunks white when the set changes.
+do
+    local ok, err = pcall(function()
+        M.keepTex = bolt.createsurface(config.CHUNKS_PER_AXIS, config.CHUNKS_PER_AXIS)
+    end)
+    if not ok then print("[chunk-man] keep texture init failed: " .. tostring(err)) end
 end
 
 return M

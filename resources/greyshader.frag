@@ -1,8 +1,13 @@
 // Companion to greyshader.vert. For each screen pixel: read the scene depth,
 // reconstruct the world position via the inverse view-projection matrix, work
 // out which chunk that world point sits in, and paint the grey tint unless that
-// chunk is in the "unlocked" list. Sky / far-plane pixels belong to no chunk, so
-// they are greyed too.
+// chunk is unlocked. Sky / far-plane pixels belong to no chunk, so they are
+// greyed too (subject to uGreySky).
+//
+// Whether a chunk is unlocked is answered by a single texel read from uKeepTex,
+// a 256x256 lookup texture where texel (regionX, regionZ) is opaque iff that
+// chunk is unlocked. This is O(1) per pixel and it replaces the old per-pixel
+// linear scan of a uniform array, and removes any ceiling on the unlock count.
 //
 // Reconstruction mirrors the depth-sampling convention the other shaders use:
 // the depth buffer is indexed by the UNFLIPPED clip-space UV (vScreenPos), so we
@@ -11,14 +16,11 @@
 // homogeneous divide recovers the world point regardless of its w.
 in highp vec4 vScreenPos;
 layout(location=1) uniform highp vec4 uColor;          // grey tint (rgb + alpha)
-layout(location=2) uniform highp vec2 uScreenSize;
 layout(location=3) uniform highp mat4 uInvViewproj;    // inverse of the camera viewproj
-layout(location=4) uniform highp vec4 uKeepBBox;       // region bbox of the keep set: rxMin, rzMin, rxMax, rzMax
 layout(location=5) uniform highp vec4 uGreyWindow;     // grey window around the player: rxMin, rzMin, rxMax, rzMax
+layout(location=6) uniform highp sampler2D uKeepTex;   // 256x256: texel (rx,rz).r > 0.5 => unlocked
 layout(location=7) uniform highp sampler2D uDepthBuffer;
-layout(location=8) uniform highp float uKeepCount;     // number of unlocked chunk IDs
 layout(location=9) uniform highp float uGreySky;       // 1 = grey the sky too, 0 = leave it
-layout(location=10) uniform highp vec4 uKeep[64];      // unlocked chunk IDs, packed 4 per vec4
 out highp vec4 fragColor;
 
 // world units per region edge = UNITS_PER_TILE(512) * TILES_PER_REGION(64)
@@ -56,32 +58,14 @@ void main() {
     return;
   }
 
-  // Bounding-box early-out: any pixel whose chunk lies outside the uploaded keep
-  // set's region bbox can never be unlocked, so grey it without searching the
-  // list. This skips the per-pixel loop for the large fraction of the screen
-  // showing far-off locked terrain.
-  if (rx < uKeepBBox.x || rx > uKeepBBox.z || rz < uKeepBBox.y || rz > uKeepBBox.w) {
+  // Outside valid region space there is no chunk to look up; it can't be
+  // unlocked, so grey it (and keep the texelFetch coords in range).
+  if (rx < 0.0 || rx >= CHUNKS_PER_AXIS || rz < 0.0 || rz >= CHUNKS_PER_AXIS) {
     fragColor = uColor;
     return;
   }
 
-  highp float id = rx * CHUNKS_PER_AXIS + rz;
-
-  // keep (leave un-greyed) if this chunk is in the unlocked list
-  int n = int(uKeepCount + 0.5);
-  bool keep = false;
-  int idx = 0;
-  for (int j = 0; j < 64; j++) {
-    if (idx >= n) break;
-    highp vec4 k = uKeep[j];
-    if (abs(k.x - id) < 0.5) { keep = true; break; } idx++;
-    if (idx >= n) break;
-    if (abs(k.y - id) < 0.5) { keep = true; break; } idx++;
-    if (idx >= n) break;
-    if (abs(k.z - id) < 0.5) { keep = true; break; } idx++;
-    if (idx >= n) break;
-    if (abs(k.w - id) < 0.5) { keep = true; break; } idx++;
-  }
-
+  // O(1) keep lookup: one texel per chunk, NEAREST-filtered so the fetch is exact.
+  bool keep = texelFetch(uKeepTex, ivec2(int(rx), int(rz)), 0).r > 0.5;
   fragColor = keep ? vec4(0.0) : uColor;
 }
