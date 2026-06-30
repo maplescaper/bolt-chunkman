@@ -18,7 +18,7 @@
     position: relative;
     text-align: center;
     padding: 26px 48px 30px;
-    border-radius: 18px;
+    border-radius: 0;
     border: 1px solid rgba(255, 206, 90, 0.7);
     background: radial-gradient(circle at 50% 25%, rgba(74, 58, 26, 0.96), rgba(26, 21, 12, 0.97));
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 60px rgba(255, 206, 90, 0.25);
@@ -57,7 +57,7 @@
   /* sparkles */
   .spark {
     position: absolute; top: 50%; left: 50%;
-    width: 9px; height: 9px; border-radius: 50%;
+    width: 9px; height: 9px; border-radius: 0;
     background: #ffce5a;
     box-shadow: 0 0 8px rgba(255, 206, 90, 0.9);
     opacity: 0;
@@ -118,7 +118,7 @@
 
     // a chunk was newly unlocked
     function show(msg) {
-      titleEl.textContent = "Chunk Unlocked!";
+      titleEl.textContent = "Chunk Unlocked";
       subEl.innerHTML = 'You unlocked chunk <b id="chunkId"></b>';
       document.getElementById("chunkId").textContent = msg.id;
       regionEl.textContent = "region " + msg.rx + ", " + msg.rz;
@@ -127,7 +127,7 @@
 
     // every active task on the chunk is now complete
     function showComplete(msg) {
-      titleEl.textContent = "Chunk Complete!";
+      titleEl.textContent = "Chunk Complete";
       subEl.innerHTML = "<b></b> Tasks Complete";
       subEl.querySelector("b").textContent = msg.done + "/" + msg.total;
       regionEl.textContent = "";
