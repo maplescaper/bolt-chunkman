@@ -3,7 +3,7 @@
 --   * gear icon (ui/icon.html)      -- toggles the settings panel
 --   * settings panel (ui/panel.html) -- built from config.SCHEMA, edits apply live
 --   * chunk-ID readout (ui/readout.html) -- the current chunk-ID badge
---   * congrats popup (ui/congrats.html)  -- shown when a chunk is newly unlocked
+--   * congrats popup (ui/popup.html?p=congrats) -- shown when a chunk is newly unlocked
 -- Everything is laid out at a base size multiplied by cfg.uiScale, so the whole
 -- interface scales from the panel. The panel talks back over the bolt-api
 -- message bridge (onPanelMessage).
@@ -26,7 +26,7 @@ local UI_MARGIN = 10
 local ICON_BASE = 44
 local READOUT_BASE_W = 150
 local PANEL_BASE_W = util.PANEL_BASE_W
-local CONGRATS_BASE_W, CONGRATS_BASE_H = 460, 230
+local POPUP_BASE_W, POPUP_BASE_H = 460, 230
 
 local function uiScale()
     return util.clampUiScale(cfg.uiScale)
@@ -39,7 +39,7 @@ local function pageUrl(path)
 end
 
 -- the embedded browsers; (re)built when the scale changes
-local iconBrowser, panelBrowser, readoutBrowser, congratsBrowser
+local iconBrowser, panelBrowser, readoutBrowser, popupBrowser
 -- a real OS window for text entry (embedded overlays get no keyboard input)
 local textEditorBrowser
 -- a setting key whose external editor was requested from the panel but must be
@@ -350,28 +350,35 @@ function M.pushChunkReadout(prx, prz)
     end
 end
 
--- ---- "chunk unlocked" congratulations popup ----
--- A big, temporary card shown near the top of the game view when a chunk is
--- newly unlocked. It's an on-demand embedded browser: we create it centred on
--- the current window, push the chunk info, and the page plays its animation then
--- asks us to close it again via oncloserequest.
-M.lastCongratsGeom = "none"   -- diagnostics: last popup window/size/pos
+-- ---- popups ----
+-- A popup is a big, temporary card shown centred near the top of the game view.
+-- It's an on-demand embedded browser loading the generic shell (ui/popup.html)
+-- with a named variant (?p=<name> -> ui/popups/<name>.*): we create it, push a
+-- payload once the page reports ready, and the page plays its animation then asks
+-- us to close it again via oncloserequest. Only one popup is on screen at a time.
+M.lastPopupGeom = "none"   -- diagnostics: last popup window/size/pos
 
-local function closeCongrats()
-    if congratsBrowser then
-        congratsBrowser:close()
-        congratsBrowser = nil
+local function closePopup()
+    if popupBrowser then
+        popupBrowser:close()
+        popupBrowser = nil
     end
 end
+M.closePopup = closePopup
 
--- Open the congrats card centred near the top of the game view and push it the
--- given (already JSON-encoded) payload once its page reports ready. Shared by the
--- "chunk unlocked" and "chunk complete" popups, which differ only in payload.
-local function openCongratsCard(payload)
-    closeCongrats()   -- replace any popup still on screen
+-- Open the named popup variant centred near the top of the game view and push it
+-- the given message table (JSON-encoded here) once its page reports ready. The
+-- variant name selects which ui/popups/<name>.* files render the card; the
+-- payload's own `type` field selects the handler within that variant. opts.w /
+-- opts.h give the card's base (unscaled) size, defaulting to POPUP_BASE_W/H;
+-- every popup shares the same centred-near-top position.
+local function openPopup(name, msg, opts)
+    closePopup()   -- replace any popup still on screen
+    opts = opts or {}
+    local payload = jsonEncode(msg)
     local s = uiScale()
-    local cw = math.floor(CONGRATS_BASE_W * s)
-    local ch = math.floor(CONGRATS_BASE_H * s)
+    local cw = math.floor((opts.w or POPUP_BASE_W) * s)
+    local ch = math.floor((opts.h or POPUP_BASE_H) * s)
     -- prefer a fresh read of the window size; fall back to the cached value
     local okw, w, h = pcall(bolt.gamewindowsize)
     local sw = (okw and w and w > 0) and w or ((world.lastWinW and world.lastWinW > 0) and world.lastWinW or 1280)
@@ -379,26 +386,29 @@ local function openCongratsCard(payload)
     local x = math.floor((sw - cw) / 2)
     -- horizontally centred, but raised toward the top quarter of the screen
     local y = math.floor(sh * 0.18)
-    M.lastCongratsGeom = string.format("win=%dx%d size=%dx%d pos=%d,%d", sw, sh, cw, ch, x, y)
-    local ok, b = pcall(bolt.createembeddedbrowser, x, y, cw, ch, pageUrl("congrats.html"))
+    M.lastPopupGeom = string.format("win=%dx%d size=%dx%d pos=%d,%d", sw, sh, cw, ch, x, y)
+    local ok, b = pcall(bolt.createembeddedbrowser, x, y, cw, ch, pageUrl("popup.html") .. "&p=" .. name)
     if not ok or not b then
-        print("[chunk-man] could not open congrats popup: " .. tostring(b))
+        print("[chunk-man] could not open " .. name .. " popup: " .. tostring(b))
         return
     end
-    congratsBrowser = b
-    congratsBrowser:onmessage(function(msg)
-        if msg == "ready" and congratsBrowser then congratsBrowser:sendmessage(payload) end
+    popupBrowser = b
+    popupBrowser:onmessage(function(m)
+        if m == "ready" and popupBrowser then popupBrowser:sendmessage(payload) end
     end)
-    congratsBrowser:oncloserequest(closeCongrats)
+    popupBrowser:oncloserequest(closePopup)
 end
+M.openPopup = openPopup
 
+-- chunk celebration popups, both rendered by the "congrats" variant
+-- (ui/popups/congrats.*); they differ only in the message `type`.
 function M.showCongrats(rx, rz, chunkId)
-    openCongratsCard(jsonEncode({ type = "congrats", id = chunkId, rx = rx, rz = rz }))
+    openPopup("congrats", { type = "congrats", id = chunkId, rx = rx, rz = rz })
 end
 
 -- "Chunk Complete!" card, shown when the last active task on the chunk is ticked.
 function M.showTasksComplete(done, total)
-    openCongratsCard(jsonEncode({ type = "complete", done = done, total = total }))
+    openPopup("congrats", { type = "complete", done = done, total = total })
 end
 
 -- build the always-on UI (gear icon + chunk readout)

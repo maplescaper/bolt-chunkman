@@ -1,0 +1,32 @@
+/* Gold celebration theme for the congrats popup (structure/animation lives in
+   popup.html; the message handling in congrats.js). */
+#card {
+  padding: 26px 48px 30px;
+  border: 1px solid rgba(255, 206, 90, 0.7);
+  background: radial-gradient(circle at 50% 25%, rgba(74, 58, 26, 0.96), rgba(26, 21, 12, 0.97));
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 60px rgba(255, 206, 90, 0.25);
+  color: #ece5d4;
+}
+#title {
+  font-size: 40px; font-weight: 800; line-height: 1.1;
+  background: linear-gradient(180deg, #fff2c8, #ffce5a 60%, #e0a020);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+#sub {
+  margin-top: 10px;
+  font-size: 16px; color: #d8cfb5;
+}
+#sub b {
+  color: #ffce5a;
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+}
+#region { margin-top: 4px; font-size: 12px; color: #a89e86; letter-spacing: .5px; }
+
+/* sparkle colour/glow (geometry + animation come from popup.html) */
+.spark {
+  background: #ffce5a;
+  box-shadow: 0 0 8px rgba(255, 206, 90, 0.9);
+}

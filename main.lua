@@ -129,7 +129,7 @@ bolt.onswapbuffers(function(event)
                 "overworld=" .. (haveMM and tostring(chunks.isOverworld(math.floor(ptx / TILES_PER_REGION), math.floor(ptz / TILES_PER_REGION))) or "nil"),
                 "ground_y=" .. (world.haveGroundY and string.format("%.0f", world.groundY) or "nil"),
                 "win_size=" .. string.format("%d,%d", world.lastWinW or 0, world.lastWinH or 0),
-                "last_congrats=" .. ui.lastCongratsGeom,
+                "last_popup=" .. ui.lastPopupGeom,
             }, "\n") .. "\n")
         end
     end

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* Generic popup shell: page reset, card layout, and the entrance/exit +
+     sparkle animations shared by every popup. The per-popup visual theme and
+     message handling live in popups/<name>.css and popups/<name>.js, loaded by
+     name from the ?p= query parameter (defaults to "congrats"). */
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: transparent; overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    pointer-events: none;
+  }
+  #stage {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #card {
+    position: relative;
+    text-align: center;
+    border-radius: 0;
+    transform: scale(0.6);
+    opacity: 0;
+    animation: pop 0.45s cubic-bezier(0.18, 1.5, 0.4, 1) forwards;
+  }
+  #card.out { animation: fade 0.5s ease forwards; }
+  @keyframes pop {
+    0%   { transform: scale(0.6);  opacity: 0; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  @keyframes fade {
+    0%   { transform: scale(1);    opacity: 1; }
+    100% { transform: scale(1.08); opacity: 0; }
+  }
+
+  /* sparkles (theme supplies their colour/glow) */
+  .spark {
+    position: absolute; top: 50%; left: 50%;
+    width: 9px; height: 9px; border-radius: 0;
+    opacity: 0;
+    animation: burst 0.9s ease-out forwards;
+  }
+  @keyframes burst {
+    0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
+  }
+</style>
+<script>
+  // Scale the page content to match the (scaled) browser rectangle.
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) document.documentElement.style.zoom = s;
+  })();
+</script>
+</head>
+<body>
+  <div id="stage">
+    <div id="card">
+      <div id="title"></div>
+      <div id="sub"></div>
+      <div id="region"></div>
+    </div>
+  </div>
+  <script src="popups/popup.js"></script>
+  <script>
+    // Load the specific popup named in ?p= (defaults to "congrats"): its theme
+    // stylesheet and its message handlers. We only announce "ready" to Lua once
+    // the handler script has loaded, so the pushed payload is never missed.
+    (function () {
+      const name = (new URLSearchParams(location.search).get("p") || "congrats")
+        .replace(/[^a-z0-9_-]/gi, "");
+
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "popups/" + name + ".css";
+      document.head.appendChild(css);
+
+      const js = document.createElement("script");
+      js.src = "popups/" + name + ".js";
+      js.onload = () => Popup.ready();
+      js.onerror = () => Popup.ready();
+      document.body.appendChild(js);
+    })();
+  </script>
+</body>
+</html>
