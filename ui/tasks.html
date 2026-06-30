@@ -57,11 +57,32 @@
   .hbtn:hover { border-color: var(--gold); color: var(--gold); }
   #close { font-size: 15px; line-height: 1; padding: 4px 8px; }
 
+  #tabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--line); }
+  .tab {
+    flex: 1; background: none; border: none; font-family: inherit;
+    color: var(--muted); font-size: 12px;
+    padding: 9px 6px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab .tcount {
+    font-size: 11px; color: var(--muted);
+    background: rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 0 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tab.active .tcount { color: var(--gold); background: rgba(255, 200, 90, 0.15); }
+  /* everything in the tab is done: badge goes bright green instead of gold */
+  .tab .tcount.alldone,
+  .tab.active .tcount.alldone { color: var(--green); background: rgba(87, 227, 106, 0.16); }
+
   #summary {
-    padding: 7px 12px; font-size: 12px; color: var(--muted);
+    padding: 6px 12px; font-size: 11px; color: var(--muted);
     border-bottom: 1px solid var(--line);
   }
   #summary b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  .tabnote { font-size: 11px; color: var(--muted); padding: 8px 2px 0; }
 
   #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
   #body::-webkit-scrollbar { width: 9px; }
@@ -84,6 +105,7 @@
     padding-bottom: 4px;
   }
   .group-title.backlog { color: var(--muted); }
+  .group-title.completed { color: var(--green-dark); }
   .group-title .count { color: var(--muted); letter-spacing: 0; text-transform: none; }
 
   .task {
@@ -141,6 +163,11 @@
       <button class="hbtn" id="refresh" title="Re-fetch from the Chunk Picker">&#x21bb;</button>
       <button class="hbtn" id="close" title="Close">&times;</button>
     </header>
+    <div id="tabs" style="display:none">
+      <button class="tab" data-tab="active">Active <span class="tcount" id="cnt-active"></span></button>
+      <button class="tab" data-tab="backlog">Backlog <span class="tcount" id="cnt-backlog"></span></button>
+      <button class="tab" data-tab="completed">Completed <span class="tcount" id="cnt-completed"></span></button>
+    </div>
     <div id="summary" style="display:none"></div>
     <div id="body"><div id="msg">Loading&hellip;</div></div>
     <div id="resize" title="Drag to resize height"></div>
@@ -153,16 +180,18 @@
     const DB      = "https://chunkpickerrs3.firebaseio.com";
     const TASKMAP_URL = "https://source-chunk.github.io/chunk-picker-rs3/tasksMap.json";
     const TASKMAP_CACHE_KEY = "cm_tasksMap_rev_v1";
-    const PAYLOAD_VER = 2;   // bump when the cached payload shape changes
+    const PAYLOAD_VER = 5;   // bump when the cached payload shape changes
 
     const api       = (body) => fetch("https://bolt-api/send-message", { method: "POST", body });
     const bodyEl    = document.getElementById("body");
+    const tabsEl    = document.getElementById("tabs");
     const summaryEl = document.getElementById("summary");
     const mapLabel  = document.getElementById("mapLabel");
 
     let nameMap   = null;   // "t_<id>" -> clean task name
     let payload   = null;   // the current render-ready payload
     let payloadFromCache = false;
+    let curTab    = "active";   // which tab's section is showing
     let overrides = {};     // { "<mapId>": { "<cat><tid>": bool } } local check-offs
 
     // local check-off state for a task, falling back to the picker's value
@@ -179,6 +208,7 @@
       'and set your map ID (the "?&lt;id&gt;" in your picker URL).</span>';
 
     function showMsg(text, isErr) {
+      tabsEl.style.display = "none";
       summaryEl.style.display = "none";
       bodyEl.innerHTML = "";
       const d = document.createElement("div");
@@ -228,9 +258,9 @@
     }
 
     // ---- rendering (from a normalized payload, cached or freshly built) ----
-    function addGroupTitle(parent, label, count, isBacklog) {
+    function addGroupTitle(parent, label, count, variant) {
       const t = document.createElement("div");
-      t.className = "group-title" + (isBacklog ? " backlog" : "");
+      t.className = "group-title" + (variant ? " " + variant : "");
       t.innerHTML = "<span>" + label + "</span>" +
         (count != null ? '<span class="count">' + count + "</span>" : "");
       parent.appendChild(t);
@@ -281,33 +311,100 @@
       bodyEl.scrollTop = scroll;
     }
 
+    // counts used for the tab badges (active is "done/total")
+    function backlogCount(p) {
+      let n = 0;
+      for (const g of (p.backlog || [])) n += g.tasks.length;
+      return n + ((p.backlogSources && p.backlogSources.length) || 0);
+    }
+    function completedCount(p) {
+      let n = 0;
+      for (const g of (p.completed || [])) n += g.tasks.length;
+      return n;
+    }
+    function activeCounts(p) {
+      let total = 0, done = 0;
+      for (const g of p.active) for (const t of g.tasks) { total++; if (effDone(g.cat, t)) done++; }
+      return { total, done };
+    }
+
+    function emptyTab(text) {
+      const d = document.createElement("div");
+      d.id = "msg"; d.textContent = text;
+      bodyEl.appendChild(d);
+    }
+
+    // ---- per-tab body renderers ----
+    function renderActiveTab() {
+      const p = payload;
+      if (!p.active.length) { emptyTab("No active tasks on this map yet."); return; }
+      for (const g of p.active) {
+        addGroupTitle(bodyEl, g.cat, g.tasks.length, "");
+        for (const t of g.tasks) addTaskRow(bodyEl, g.cat, t, true);
+      }
+    }
+    // Backlog = wishlist tasks plus backlogged sources (monsters/items the picker
+    // tracks as "want to get to", shown as a single "Sources" group). No badges.
+    function renderBacklogTab() {
+      const p = payload;
+      const hasB = p.backlog && p.backlog.length;
+      const hasS = p.backlogSources && p.backlogSources.length;
+      if (!hasB && !hasS) { emptyTab("Nothing in the backlog."); return; }
+      for (const g of (p.backlog || [])) {
+        addGroupTitle(bodyEl, g.cat, g.tasks.length, "backlog");
+        for (const t of g.tasks) addTaskRow(bodyEl, g.cat, t, false);
+      }
+      if (hasS) {
+        addGroupTitle(bodyEl, "Sources", p.backlogSources.length, "backlog");
+        for (const t of p.backlogSources) addTaskRow(bodyEl, "Sources", t, false);
+      }
+    }
+    // Tasks finished in earlier chunks (the picker's completedChallenges set,
+    // disjoint from the active list). Read-only history: not clickable.
+    function renderCompletedTab() {
+      const p = payload;
+      if (!p.completed || !p.completed.length) { emptyTab("Nothing completed in previous chunks yet."); return; }
+      const note = document.createElement("div");
+      note.className = "tabnote"; note.textContent = "Completed in previous chunks.";
+      bodyEl.appendChild(note);
+      for (const g of p.completed) {
+        addGroupTitle(bodyEl, g.cat, g.tasks.length, "completed");
+        for (const t of g.tasks) addTaskRow(bodyEl, g.cat, t, false);
+      }
+    }
+
+    // Show one tab's section, update the tab-bar highlight, and reset scroll.
+    function showTab(tab) {
+      curTab = tab;
+      document.querySelectorAll(".tab").forEach((b) =>
+        b.classList.toggle("active", b.dataset.tab === tab));
+      bodyEl.innerHTML = "";
+      if (tab === "backlog") renderBacklogTab();
+      else if (tab === "completed") renderCompletedTab();
+      else renderActiveTab();
+    }
+
     function renderPayload(p, fromCache) {
       payload = p; payloadFromCache = fromCache;
-      const hasBacklog = p.backlog && p.backlog.length;
-      if (!p.active.length && !hasBacklog) { showMsg("No active tasks on this map yet."); return; }
-      bodyEl.innerHTML = "";
-      let total = 0, done = 0;
-      for (const g of p.active) {
-        addGroupTitle(bodyEl, g.cat, g.tasks.length, false);
-        for (const t of g.tasks) {
-          total++; if (effDone(g.cat, t)) done++;
-          addTaskRow(bodyEl, g.cat, t, true);
-        }
-      }
-      if (hasBacklog) {
-        addGroupTitle(bodyEl, "Backlog", null, true);
-        for (const g of p.backlog) {
-          addGroupTitle(bodyEl, g.cat, g.tasks.length, true);
-          for (const t of g.tasks) addTaskRow(bodyEl, g.cat, t, false);
-        }
-      }
-      summaryEl.style.display = "block";
-      const when = p.fetchedAt
-        ? ' &middot; <span title="' + new Date(p.fetchedAt).toLocaleString() + '">updated ' +
-            relTime(p.fetchedAt) + (fromCache ? " (cached)" : "") + "</span>"
-        : "";
-      summaryEl.innerHTML = "Active: <b>" + done + "</b> / <b>" + total + "</b> done" +
-        (p.resolve ? "" : ' <span style="opacity:.7">(names off)</span>') + when;
+      const ac = activeCounts(p), bc = backlogCount(p), cc = completedCount(p);
+      if (!ac.total && !bc && !cc) { showMsg("No tasks on this map yet."); return; }
+
+      tabsEl.style.display = "flex";
+      const cntActive = document.getElementById("cnt-active");
+      cntActive.textContent = ac.done + "/" + ac.total;
+      cntActive.classList.toggle("alldone", ac.total > 0 && ac.done === ac.total);
+      document.getElementById("cnt-backlog").textContent = bc;
+      document.getElementById("cnt-completed").textContent = cc;
+
+      // summary line is now just provenance: fetch time and the names-off note
+      const parts = [];
+      if (!p.resolve) parts.push('<span style="opacity:.7">names off</span>');
+      if (p.fetchedAt) parts.push('<span title="' + new Date(p.fetchedAt).toLocaleString() +
+        '">updated ' + relTime(p.fetchedAt) + (fromCache ? " (cached)" : "") + "</span>");
+      summaryEl.innerHTML = parts.join(" &middot; ");
+      summaryEl.style.display = parts.length ? "block" : "none";
+
+      showTab(curTab);
     }
 
     // ---- build a normalized payload from the live Chunk Picker data ----
@@ -339,7 +436,29 @@
       };
       const active  = groups(info.activeTasks || {}, true);
       const backlog = groups(info.backlog || {}, false);
-      return { ver: PAYLOAD_VER, mapId: MID, resolve: RESOLVE, fetchedAt: Date.now(), active, backlog, stats: { total, done } };
+      // Backlogged sources: a separate key from `backlog`, keyed by the source
+      // NAME itself (e.g. "Juvenile-_-20boulder-_-20crab") rather than a t_<id>,
+      // so decode the key directly instead of resolving it. Value is just `true`.
+      const srcSections = info.backloggedSources || {};
+      const backlogSources = [];   // flat list; each name prefixed with its category
+      for (const cat of Object.keys(srcSections).sort()) {
+        const entries = srcSections[cat] || {};
+        const label = cat.charAt(0).toUpperCase() + cat.slice(1);   // "monsters" -> "Monsters"
+        for (const n of Object.keys(entries)) backlogSources.push({ name: label + ": " + decodeValue(n) });
+      }
+      // Tasks completed in earlier chunks. This is a distinct key from
+      // checkedChallenges (which only flags done-state within activeTasks) and
+      // its ids are disjoint from the active set. Values are just `true`, so
+      // there's no level/value badge; mark each done to render it struck-through.
+      const completedSrc = info.completedChallenges || {};
+      const completed = [];
+      for (const cat of Object.keys(completedSrc).sort()) {
+        const entries = completedSrc[cat] || {};
+        const ids = Object.keys(entries);
+        if (!ids.length) continue;
+        completed.push({ cat, tasks: ids.map((tid) => ({ tid, name: taskLabel(tid), val: "", done: true })) });
+      }
+      return { ver: PAYLOAD_VER, mapId: MID, resolve: RESOLVE, fetchedAt: Date.now(), active, backlog, backlogSources, completed, stats: { total, done } };
     }
 
     // Sync the picker's unlocked chunks to Lua. These are raw picker IDs; Lua
@@ -403,6 +522,11 @@
       fetch("https://bolt-api/close-request");
     });
     document.getElementById("refresh").addEventListener("click", fetchAndStore);
+
+    // switch tabs (no-op until a payload has rendered)
+    document.querySelectorAll(".tab").forEach((b) => {
+      b.addEventListener("click", () => { if (payload) showTab(b.dataset.tab); });
+    });
 
     // drag the panel by its header
     document.getElementById("drag").addEventListener("mousedown", (ev) => {
