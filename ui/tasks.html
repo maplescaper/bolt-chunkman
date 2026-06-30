@@ -318,13 +318,17 @@
       let m = overrides[MID];
       if (!m) { m = {}; overrides[MID] = m; }
       const k = ovKey(cat, t.tid);
+      const checkedOn = m[k] !== true;   // about to turn this task on (vs. off)
       if (m[k] === true) delete m[k]; else m[k] = true;
       if (Object.keys(m).length === 0) delete overrides[MID];
       api("checks\n" + JSON.stringify(overrides));
-      // ticking the final outstanding task -> tell Lua to show the "complete" card
+      // Celebrate ticking a task on: the final outstanding task shows the big
+      // "chunk complete" card; any other completion shows the smaller per-task card.
       const after = activeCounts(payload);
       if (after.total > 0 && after.done === after.total && after.done > before.done) {
         api("tasksdone\n" + after.done + "\n" + after.total);
+      } else if (checkedOn) {
+        api("taskdone\n" + t.name);
       }
       const scroll = bodyEl.scrollTop;
       renderPayload(payload, payloadFromCache);

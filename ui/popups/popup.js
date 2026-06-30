@@ -25,14 +25,14 @@
     }
   }
 
-  // (re)play the pop+sparkle animation, then fade out and ask Lua to close us
+  // (re)play the pop animation, then fade out and ask Lua to close us. Sparkles
+  // are a separate opt-in (Popup.sparkle), so a variant can play without them.
   function play() {
     // restart the pop animation in case the card is being reused
     card.classList.remove("out");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
-    sparkle();
     setTimeout(() => { card.classList.add("out"); }, 2600);
     setTimeout(() => { fetch("https://bolt-api/close-request"); }, 3200);
   }
@@ -45,6 +45,7 @@
     setTitle(text) { titleEl.textContent = text; },
     setSub(html) { subEl.innerHTML = html; },
     setRegion(text) { regionEl.textContent = text || ""; },
+    sparkle,
     play,
     // tell Lua the handlers are registered and we're ready for a payload
     ready() { fetch("https://bolt-api/send-message", { method: "POST", body: "ready" }); },

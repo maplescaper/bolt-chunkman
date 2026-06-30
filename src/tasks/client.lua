@@ -76,6 +76,13 @@ local function onTasksMessage(m)
         if d and total then require("ui").showTasksComplete(tonumber(d), tonumber(total)) end
         return
     end
+    -- A single task was ticked off (and it wasn't the chunk-completing one); show
+    -- the smaller per-task card with the task's name.
+    local taskdone = m:match("^taskdone\n(.*)$")
+    if taskdone then
+        require("ui").showTaskComplete(taskdone)
+        return
+    end
     -- The page sends the picker's unlocked chunk IDs (raw picker IDs) after a
     -- fetch. Convert each to its Bolt chunk ID and overwrite the unlocked set,
     -- making the picker the source of truth for what's unlocked.

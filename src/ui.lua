@@ -411,6 +411,13 @@ function M.showTasksComplete(done, total)
     openPopup("congrats", { type = "complete", done = done, total = total })
 end
 
+-- "Task Complete!" card, shown when a single task is ticked off in the tasks
+-- panel. Rendered by the smaller, sparkle-free "task" variant (ui/popups/task.*),
+-- so it's given a shorter height than the chunk cards.
+function M.showTaskComplete(name)
+    openPopup("task", { type = "task", name = name }, { h = 130 })
+end
+
 -- build the always-on UI (gear icon + chunk readout)
 function M.init()
     createIconBrowser()

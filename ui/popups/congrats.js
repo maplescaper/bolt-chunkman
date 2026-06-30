@@ -8,6 +8,7 @@
     Popup.setSub('You unlocked chunk <b id="chunkId"></b>');
     document.getElementById("chunkId").textContent = msg.id;
     Popup.setRegion("region " + msg.rx + ", " + msg.rz);
+    Popup.sparkle();
     Popup.play();
   });
 
@@ -17,6 +18,7 @@
     Popup.setSub("<b></b> Tasks Complete");
     Popup.subEl.querySelector("b").textContent = msg.done + "/" + msg.total;
     Popup.setRegion("");
+    Popup.sparkle();
     Popup.play();
   });
 })();
