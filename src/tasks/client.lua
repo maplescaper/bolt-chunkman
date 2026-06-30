@@ -67,6 +67,15 @@ local function onTasksMessage(m)
     if json then bolt.saveconfig(cacheFile(), json); return end
     local checks = m:match("^checks\n(.*)$")
     if checks then bolt.saveconfig(overridesFile(), checks); return end
+    -- The page tells us when ticking the last active task completed the chunk;
+    -- celebrate with the same popup as a chunk unlock. ui is required lazily to
+    -- avoid a load-time cycle (ui requires this module); by message time it's cached.
+    local tasksdone = m:match("^tasksdone\n(.*)$")
+    if tasksdone then
+        local d, total = tasksdone:match("^(%d+)\n(%d+)$")
+        if d and total then require("ui").showTasksComplete(tonumber(d), tonumber(total)) end
+        return
+    end
     -- The page sends the picker's unlocked chunk IDs (raw picker IDs) after a
     -- fetch. Convert each to its Bolt chunk ID and overwrite the unlocked set,
     -- making the picker the source of truth for what's unlocked.

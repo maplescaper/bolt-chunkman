@@ -364,7 +364,10 @@ local function closeCongrats()
     end
 end
 
-function M.showCongrats(rx, rz, chunkId)
+-- Open the congrats card centred near the top of the game view and push it the
+-- given (already JSON-encoded) payload once its page reports ready. Shared by the
+-- "chunk unlocked" and "chunk complete" popups, which differ only in payload.
+local function openCongratsCard(payload)
     closeCongrats()   -- replace any popup still on screen
     local s = uiScale()
     local cw = math.floor(CONGRATS_BASE_W * s)
@@ -383,11 +386,19 @@ function M.showCongrats(rx, rz, chunkId)
         return
     end
     congratsBrowser = b
-    local payload = jsonEncode({ type = "congrats", id = chunkId, rx = rx, rz = rz })
     congratsBrowser:onmessage(function(msg)
         if msg == "ready" and congratsBrowser then congratsBrowser:sendmessage(payload) end
     end)
     congratsBrowser:oncloserequest(closeCongrats)
+end
+
+function M.showCongrats(rx, rz, chunkId)
+    openCongratsCard(jsonEncode({ type = "congrats", id = chunkId, rx = rx, rz = rz }))
+end
+
+-- "Chunk Complete!" card, shown when the last active task on the chunk is ticked.
+function M.showTasksComplete(done, total)
+    openCongratsCard(jsonEncode({ type = "complete", done = done, total = total }))
 end
 
 -- build the always-on UI (gear icon + chunk readout)

@@ -86,7 +86,8 @@
   </div>
   <script>
     const card = document.getElementById("card");
-    const idEl = document.getElementById("chunkId");
+    const titleEl = document.getElementById("title");
+    const subEl = document.getElementById("sub");
     const regionEl = document.getElementById("region");
 
     function sparkle() {
@@ -103,18 +104,34 @@
       }
     }
 
-    function show(msg) {
-      idEl.textContent = msg.id;
-      regionEl.textContent = "region " + msg.rx + ", " + msg.rz;
+    // (re)play the pop+sparkle animation, then fade out and ask Lua to close us
+    function play() {
       // restart the pop animation in case the card is being reused
       card.classList.remove("out");
       card.style.animation = "none";
       void card.offsetWidth;
       card.style.animation = "";
       sparkle();
-      // hold, then fade out and ask Lua to close us
       setTimeout(() => { card.classList.add("out"); }, 2600);
       setTimeout(() => { fetch("https://bolt-api/close-request"); }, 3200);
+    }
+
+    // a chunk was newly unlocked
+    function show(msg) {
+      titleEl.textContent = "Chunk Unlocked!";
+      subEl.innerHTML = 'You unlocked chunk <b id="chunkId"></b>';
+      document.getElementById("chunkId").textContent = msg.id;
+      regionEl.textContent = "region " + msg.rx + ", " + msg.rz;
+      play();
+    }
+
+    // every active task on the chunk is now complete
+    function showComplete(msg) {
+      titleEl.textContent = "Chunk Complete!";
+      subEl.innerHTML = "<b></b> Tasks Complete";
+      subEl.querySelector("b").textContent = msg.done + "/" + msg.total;
+      regionEl.textContent = "";
+      play();
     }
 
     window.addEventListener("message", (event) => {
@@ -124,6 +141,7 @@
       try { msg = JSON.parse(new TextDecoder().decode(event.data.content)); }
       catch (err) { return; }
       if (msg.type === "congrats") show(msg);
+      else if (msg.type === "complete") showComplete(msg);
     });
 
     window.addEventListener("DOMContentLoaded", () => {
