@@ -36,8 +36,9 @@ local function applyChunkToggle(rx, rz)
     chunks.rebuildGreyChunks()
     settings.saveSettings()
     ui.refreshPanelValues()
-    -- celebrate a newly unlocked chunk (not when locking one back up)
-    if not remove and cfg.showUnlockPopup then
+    -- celebrate a newly unlocked chunk (not when locking one back up); the
+    -- popup itself respects the global "Show popups" toggle (see ui.openPopup)
+    if not remove then
         ui.showCongrats(rx, rz, rx * CHUNKS_PER_AXIS + rz)
     end
 end

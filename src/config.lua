@@ -27,7 +27,7 @@ M.DEFAULTS = {
     overworldMaxChunkId = 15424,                       -- opposite corner of the overworld region box (NE)
     unlockedChunkIds = "",                             -- comma-separated unlocked chunk IDs, e.g. "13108, 13109"
     clickUnlock = true,                                -- ctrl+alt+middle-click a chunk to toggle it
-    showUnlockPopup = true,                            -- show the "chunk unlocked" congratulations popup
+    showPopups = true,                                 -- master toggle for all celebration popups (chunk unlocked/complete, task complete)
     dimLockedView = true,                              -- dim the whole view while standing in a locked chunk
     lockedColour = { r = 0, g = 0, b = 0, a = 0.75 },  -- curtain colour + opacity
     lockedWallHeight = 60000,                          -- world units the curtains rise toward the sky
@@ -74,7 +74,6 @@ M.SCHEMA = {
     { key = "overworldMaxChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (NE)", min = 0, max = 65535, step = 1 },
     { key = "unlockedChunkIds",    type = "text",  group = "Unlocked Chunks",    label = "Unlocked chunk IDs", placeholder = "e.g. 13108, 13109" },
     { key = "clickUnlock",         type = "bool",  group = "Unlocked Chunks",    label = "Ctrl+Alt+middle-click to unlock/lock a chunk" },
-    { key = "showUnlockPopup",     type = "bool",  group = "Unlocked Chunks",    label = "Show the \"chunk unlocked\" popup" },
     { key = "dimLockedView",       type = "bool",  group = "Unlocked Chunks",    label = "Dim the view when in a locked chunk" },
     { key = "lockedColour",        type = "rgba",  group = "Unlocked Chunks",    label = "Locked-chunk colour & opacity" },
     { key = "lockedWallHeight",    type = "int",   group = "Unlocked Chunks",    label = "Locked-chunk wall height (world units)", min = 1000, max = 200000, step = 1000 },
@@ -97,6 +96,7 @@ M.SCHEMA = {
     { key = "showChunkId",         type = "bool",  group = "Chunk ID readout",   label = "Show current chunk ID" },
 
     { key = "uiScale",             type = "float", group = "Interface",          label = "UI scale", min = 0.5, max = 3, step = 0.1 },
+    { key = "showPopups",          type = "bool",  group = "Interface",          label = "Show popups" },
     -- hidden: persisted UI state, set by dragging each panel's bottom edge (not shown as a form row)
     { key = "panelHeight",         type = "int",   group = "Interface",          label = "Settings panel height", hidden = true, min = 220, max = 1400, step = 1 },
     { key = "tasksHeight",         type = "int",   group = "Interface",          label = "Tasks panel height",    hidden = true, min = 220, max = 1400, step = 1 },

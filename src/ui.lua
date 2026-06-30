@@ -373,6 +373,7 @@ M.closePopup = closePopup
 -- opts.h give the card's base (unscaled) size, defaulting to POPUP_BASE_W/H;
 -- every popup shares the same centred-near-top position.
 local function openPopup(name, msg, opts)
+    if not cfg.showPopups then return end   -- master toggle: all popups off
     closePopup()   -- replace any popup still on screen
     opts = opts or {}
     local payload = jsonEncode(msg)
