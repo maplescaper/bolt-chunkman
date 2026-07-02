@@ -54,8 +54,9 @@ end
 -- position from the depth buffer (using the inverse camera matrix), works out
 -- which chunk it lies in, and greys it unless that chunk is unlocked. Because
 -- every pixel is judged by where it actually is, the grey boundary follows the
--- terrain exactly and never floats or drifts with the camera. Nothing to draw if
--- no chunk is unlocked (the whole-view dim handles "everything locked" instead).
+-- terrain exactly and never floats or drifts with the camera. Still runs with
+-- zero chunks unlocked: the keep texture is then all-empty, so every pixel
+-- greys, giving the same effect as the whole-view dim used by curtain mode.
 -- The "is this chunk unlocked?" test is a single texelFetch into a 256x256 keep
 -- texture (shaders.keepTex), so it is O(1) per pixel with no cap on the unlock
 -- count.
@@ -104,7 +105,7 @@ local function refreshKeepTex(grey)
 end
 
 local function drawGreyReconstruct(event, prx, prz)
-    if not shaders.grey or #chunks.keepIds == 0 then return end
+    if not shaders.grey then return end
     local inv = invViewproj()
     if not inv then return end
     local grey = shaders.grey
