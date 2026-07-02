@@ -55,6 +55,9 @@
     cursor: pointer;
   }
   .hbtn:hover { border-color: var(--gold); color: var(--gold); }
+  #refresh .rage { color: var(--muted); font-size: 11px; }
+  #refresh:hover .rage { color: var(--gold); }
+  #refresh .rage:empty { display: none; }
   #close { font-size: 15px; line-height: 1; padding: 4px 8px; }
 
   /* file-organizer style tabs: inactive ones sit recessed behind the base line;
@@ -97,6 +100,26 @@
   }
   #summary b { color: var(--gold); font-variant-numeric: tabular-nums; }
   .tabnote { font-size: 11px; color: var(--muted); padding: 8px 2px 0; }
+  /* Active-tab "hide completed" toggle (matches the settings-menu switch) */
+  .filterbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 2px 2px; font-size: 12px; color: var(--muted);
+  }
+  .filterbar .flabel { flex: 1; }
+  .switch { position: relative; width: 40px; height: 22px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; cursor: pointer;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 0; transition: background .15s;
+  }
+  .slider::before {
+    content: ""; position: absolute; height: 16px; width: 16px;
+    left: 3px; top: 3px; background: #ddd; border-radius: 0;
+    transition: transform .15s;
+  }
+  .switch input:checked + .slider { background: var(--gold); }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: #2a2415; }
 
   #body { flex: 1; overflow-y: auto; padding: 6px 12px 14px; }
   #body::-webkit-scrollbar { width: 9px; }
@@ -174,7 +197,7 @@
   <div id="wrap">
     <header id="drag">
       <h1>Chunk Tasks <span class="map" id="mapLabel"></span></h1>
-      <button class="hbtn" id="refresh" title="Re-fetch from the Chunk Picker">&#x21bb;</button>
+      <button class="hbtn" id="refresh" title="Re-fetch from the Chunk Picker">Refresh <span class="rage" id="refreshAge"></span></button>
       <button class="hbtn" id="close" title="Close">&times;</button>
     </header>
     <div id="tabs" style="display:none">
@@ -201,11 +224,13 @@
     const tabsEl    = document.getElementById("tabs");
     const summaryEl = document.getElementById("summary");
     const mapLabel  = document.getElementById("mapLabel");
+    const refreshAge = document.getElementById("refreshAge");
 
     let nameMap   = null;   // "t_<id>" -> clean task name
     let payload   = null;   // the current render-ready payload
     let payloadFromCache = false;
     let curTab    = "active";   // which tab's section is showing
+    let hideDone  = false;      // Active tab: only show tasks still to do
     let overrides = {};     // { "<mapId>": { "<cat><tid>": bool } } local check-offs
 
     // local check-off state for a task, falling back to the picker's value
@@ -245,6 +270,14 @@
       return /^\d+$/.test(val) ? ("lvl " + val) : val;   // bare number = skill level
     }
     function taskLabel(tid) { return (nameMap && nameMap[tid]) ? nameMap[tid] : tid; }
+
+    // Keep the "(Xm ago)" next to the Refresh button current. Driven both by
+    // renderPayload and a slow interval so it ticks up while the panel sits open.
+    function updateRefreshAge() {
+      refreshAge.textContent = (payload && payload.fetchedAt)
+        ? "(" + relTime(payload.fetchedAt) + ")" : "";
+    }
+    setInterval(updateRefreshAge, 30000);
 
     function relTime(ms) {
       const s = Math.max(0, (Date.now() - ms) / 1000);
@@ -362,10 +395,41 @@
     function renderActiveTab() {
       const p = payload;
       if (!p.active.length) { emptyTab("No active tasks on this map yet."); return; }
+      addActiveFilter();
+      let shown = 0;
       for (const g of p.active) {
-        addGroupTitle(bodyEl, g.cat, g.tasks.length, "");
-        for (const t of g.tasks) addTaskRow(bodyEl, g.cat, t, true);
+        // When "hide completed" is on, drop done tasks and any group left empty.
+        const tasks = hideDone ? g.tasks.filter((t) => !effDone(g.cat, t)) : g.tasks;
+        if (!tasks.length) continue;
+        addGroupTitle(bodyEl, g.cat, tasks.length, "");
+        for (const t of tasks) addTaskRow(bodyEl, g.cat, t, true);
+        shown += tasks.length;
       }
+      if (!shown) emptyTab("All active tasks are complete.");
+    }
+    // "Hide completed" checkbox shown at the top of the Active tab only.
+    function addActiveFilter() {
+      const bar = document.createElement("div");
+      bar.className = "filterbar";
+      const flabel = document.createElement("span");
+      flabel.className = "flabel";
+      flabel.textContent = "Hide completed";
+      const sw = document.createElement("label");
+      sw.className = "switch";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = hideDone;
+      cb.addEventListener("change", () => {
+        hideDone = cb.checked;
+        const scroll = bodyEl.scrollTop;
+        showTab("active");
+        bodyEl.scrollTop = scroll;
+      });
+      const sp = document.createElement("span");
+      sp.className = "slider";
+      sw.appendChild(cb); sw.appendChild(sp);
+      bar.appendChild(flabel); bar.appendChild(sw);
+      bodyEl.appendChild(bar);
     }
     // Backlog = wishlist tasks plus backlogged sources (monsters/items the picker
     // tracks as "want to get to", shown as a single "Sources" group). No badges.
@@ -420,13 +484,12 @@
       document.getElementById("cnt-backlog").textContent = bc;
       document.getElementById("cnt-completed").textContent = cc;
 
-      // summary line is now just provenance: fetch time and the names-off note
+      // summary line: the names-off note only (fetch age lives on the Refresh button)
       const parts = [];
       if (!p.resolve) parts.push('<span style="opacity:.7">names off</span>');
-      if (p.fetchedAt) parts.push('<span title="' + new Date(p.fetchedAt).toLocaleString() +
-        '">updated ' + relTime(p.fetchedAt) + (fromCache ? " (cached)" : "") + "</span>");
       summaryEl.innerHTML = parts.join(" &middot; ");
       summaryEl.style.display = parts.length ? "block" : "none";
+      updateRefreshAge();
 
       showTab(curTab);
     }
