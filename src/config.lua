@@ -1,6 +1,6 @@
 -- Static configuration: fixed world constants, factory-default settings, the
--- settings-UI schema, and the overworld region boxes. Pure data -- no state, no
--- bolt API. `settings.lua` holds the live, editable copy of the defaults.
+-- settings-UI schema, and the overworld region boxes. Pure data with no state
+-- and no bolt API. `settings.lua` holds the live, editable copy of the defaults.
 
 local M = {}
 
@@ -26,6 +26,9 @@ M.DEFAULTS = {
     overworldMinChunkId = 6950,                        -- one corner of the overworld region box (SW)
     overworldMaxChunkId = 15424,                       -- opposite corner of the overworld region box (NE)
     unlockedChunkIds = "",                             -- comma-separated unlocked chunk IDs, e.g. "13108, 13109"
+    rollableChunkIds = "",                             -- comma-separated roll-candidate chunk IDs, synced from the Chunk Picker (not hand-edited)
+    stickerData = "",                                  -- comma-separated "id:type:#rrggbb" sticker triples, synced from the Chunk Picker (not hand-edited)
+    localStickerData = "",                             -- comma-separated "id:type:#rrggbb" triples added locally via ctrl+click on the world map (may repeat a chunk id)
     clickUnlock = true,                                -- ctrl+alt+middle-click a chunk to toggle it
     showPopups = true,                                 -- master toggle for all celebration popups (chunk unlocked/complete, task complete)
     dimLockedView = true,                              -- dim the whole view while standing in a locked chunk
@@ -77,6 +80,12 @@ M.SCHEMA = {
     { key = "overworldMinChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (SW)", min = 0, max = 65535, step = 1 },
     { key = "overworldMaxChunkId", type = "int",   group = "Unlocked Chunks",    label = "Overworld box corner chunk ID (NE)", min = 0, max = 65535, step = 1 },
     { key = "unlockedChunkIds",    type = "text",  group = "Unlocked Chunks",    label = "Unlocked chunk IDs", placeholder = "e.g. 13108, 13109" },
+    -- hidden: synced from the Chunk Picker's roll-candidate list, not hand-edited
+    { key = "rollableChunkIds",    type = "text",  group = "Unlocked Chunks",    label = "Rollable chunk IDs", hidden = true },
+    -- hidden: synced from the Chunk Picker's sticker layer, not hand-edited
+    { key = "stickerData",         type = "text",  group = "Unlocked Chunks",    label = "Sticker data", hidden = true },
+    -- hidden: stickers added locally through the world-map ctrl+click editor
+    { key = "localStickerData",    type = "text",  group = "Unlocked Chunks",    label = "Local sticker data", hidden = true },
     { key = "clickUnlock",         type = "bool",  group = "Unlocked Chunks",    label = "Ctrl+Alt+middle-click to unlock/lock a chunk" },
     { key = "dimLockedView",       type = "bool",  group = "Unlocked Chunks",    label = "Dim the view when in a locked chunk" },
     { key = "lockedColour",        type = "rgba",  group = "Unlocked Chunks",    label = "Locked-chunk colour & opacity" },

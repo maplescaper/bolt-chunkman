@@ -31,9 +31,9 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
 - **Locked-view dimming**: if you wander into a chunk you haven't unlocked, the whole view
   dims so it's obvious you've stepped out of bounds.
 - **World map integration**: the in-game world map shows the chunk grid and chunk-ID
-  labels, greys out every locked chunk, and draws a green outline around the outside of
-  your unlocked area. The grey-out and outline can be turned off with the "Grey out
-  locked chunks on the world map" setting.
+  labels, greys out every locked chunk, draws a green outline around the outside of
+  your unlocked area, and allows you to add additional stickers to your chunks. The grey-out
+  and outline can be turned off with the "Grey out locked chunks on the world map" setting.
 
   ![World map grey-out](images/chunkman_plugin_worldmap.png)
 - **Chunk ID readout**: a small badge shows the ID of the chunk you're currently standing
@@ -186,14 +186,14 @@ The updater URL above points at a GitHub release asset. To cut a release:
 2. Build the plugin tarball (plugin files only so no README/images/`.git`/etc.):
 
    ```sh
-   tar -czf bolt-chunkman-<version>.tar.gz bolt.json main.lua resources ui src modules
+   tar -czf .\dist\bolt-chunkman-<version>.tar.gz bolt.json main.lua resources ui src modules
    ```
 
 3. Compute its checksum and put it in `meta.json` (`sha256` field), and update the `url`
    field to the new tag/asset name:
 
    ```sh
-   Get-FileHash .\bolt-chunkman-<version>.tar.gz -Algorithm SHA256
+   Get-FileHash .\dist\bolt-chunkman-<version>.tar.gz -Algorithm SHA256
    ```
 
 4. Create a release tagged `<version>` and upload **both** `bolt-chunkman-<version>.tar.gz`

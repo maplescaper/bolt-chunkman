@@ -548,10 +548,11 @@
       return { ver: PAYLOAD_VER, mapId: MID, resolve: RESOLVE, fetchedAt: Date.now(), active, backlog, backlogSources, completed, stats: { total, done } };
     }
 
-    // Sync the picker's unlocked chunks to Lua. These are raw picker IDs; Lua
-    // remaps the offset regions to Bolt IDs and overwrites the unlocked set.
-    // Independent of the task-payload cache, so it must run on every page open
-    // (cache hit or fresh fetch), not just when we re-fetch the task list.
+    // Sync the picker's unlocked chunks and roll candidates to Lua. These are
+    // raw picker IDs; Lua remaps the offset regions to Bolt IDs and overwrites
+    // its sets. The picker's "selected" list is the current roll-candidate set
+    // (the locked chunks a roll could land on, written by the picker whenever
+    // it recalculates); the world map paints those green instead of grey.
     // Best-effort: a failure here must never break the task listing.
     async function syncUnlocked() {
       if (!MID) return;
@@ -562,6 +563,35 @@
           api("unlocked\n" + (u ? Object.keys(u).join(",") : ""));
         }
       } catch (e) { /* unlocked sync is best-effort */ }
+      try {
+        const rres = await fetch(DB + "/maps/" + encodeURIComponent(MID) + "/chunks/selected.json");
+        if (rres.ok) {
+          const r = await rres.json();
+          api("rollable\n" + (r ? Object.keys(r).join(",") : ""));
+        }
+      } catch (e) { /* rollable sync is best-effort */ }
+      // Stickers the user placed in the picker: chunks/stickered is
+      // { "<chunkId>": "<type>" } (e.g. "flag"), chunks/stickeredColors the
+      // matching { "<chunkId>": "#rrggbb" }. Sent as "id:type:#rrggbb" triples;
+      // Lua remaps the IDs and draws a marker on the world map. Sticker notes
+      // (chunks/stickeredNotes) are not synced: the map has no text renderer.
+      try {
+        const [sres, cres] = await Promise.all([
+          fetch(DB + "/maps/" + encodeURIComponent(MID) + "/chunks/stickered.json"),
+          fetch(DB + "/maps/" + encodeURIComponent(MID) + "/chunks/stickeredColors.json"),
+        ]);
+        if (sres.ok) {
+          const s = (await sres.json()) || {};
+          const c = cres.ok ? ((await cres.json()) || {}) : {};
+          const rows = [];
+          for (const id of Object.keys(s)) {
+            if (!/^\d+$/.test(id)) continue;   // some picker nodes carry "*fb*_"-prefixed keys
+            const col = /^#[0-9a-fA-F]{6}$/.test(String(c[id] || "")) ? c[id] : "#FFFFFF";
+            rows.push(id + ":" + String(s[id]).replace(/[^\w-]/g, "") + ":" + col);
+          }
+          api("stickers\n" + rows.join(","));
+        }
+      } catch (e) { /* sticker sync is best-effort */ }
     }
 
     // Fetch fresh, render, and hand the result to Lua to cache per-character.

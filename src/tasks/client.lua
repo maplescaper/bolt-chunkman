@@ -98,6 +98,37 @@ local function onTasksMessage(m)
         settings.saveSettings()
         return
     end
+    -- The picker's current roll candidates (its "selected" list: the locked
+    -- chunks a roll could land on next). Same shape and remap as "unlocked";
+    -- the world map paints these green instead of grey. An empty list is
+    -- meaningful (no candidates), so always overwrite.
+    local rollable = m:match("^rollable\n(.*)$")
+    if rollable then
+        local ids = {}
+        for tok in rollable:gmatch("[^,%s]+") do
+            local id = tonumber(tok)
+            if id and id >= 0 then ids[#ids + 1] = tostring(chunks.pickerToBolt(math.floor(id))) end
+        end
+        cfg.rollableChunkIds = table.concat(ids, ",")
+        chunks.rebuildGreyChunks()
+        settings.saveSettings()
+        return
+    end
+    -- The picker's stickers, as comma-separated "id:type:#rrggbb" triples
+    -- (picker chunk IDs; the page has already sanitised type and colour).
+    -- Remapped and stored in the same single-line form for the world map's
+    -- sticker markers. An empty list is meaningful (all stickers removed).
+    local stickers = m:match("^stickers\n(.*)$")
+    if stickers then
+        local parts = {}
+        for id, typ, col in stickers:gmatch("(%d+):([%w%-_]*):(#%x%x%x%x%x%x)") do
+            parts[#parts + 1] = chunks.pickerToBolt(tonumber(id)) .. ":" .. typ .. ":" .. col
+        end
+        cfg.stickerData = table.concat(parts, ",")
+        chunks.rebuildGreyChunks()
+        settings.saveSettings()
+        return
+    end
 end
 
 -- Clear the per-character fetched-task cache so the next open re-fetches from

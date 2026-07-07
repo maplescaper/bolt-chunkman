@@ -25,6 +25,23 @@ M.keepRegions = {}
 M.keepSet = {}
 M.keepIds = {}
 
+-- "rx,rz" -> true for the picker's current roll candidates (locked chunks that
+-- could be rolled next), synced from the Chunk Picker. Purely cosmetic: the
+-- world map paints these green instead of grey. Rebuilt with the sets above.
+M.rollableSet = {}
+
+-- "rx,rz" -> { rx, rz, type, color } for the picker's stickers ("id:type:#rrggbb"
+-- triples in cfg.stickerData, chunk IDs already remapped to Bolt IDs). The
+-- world map draws a marker in the sticker's colour on each. Rebuilt with the
+-- sets above.
+M.stickerMap = {}
+
+-- "rx,rz" -> array of { type, color } (plus rx/rz fields on the array itself)
+-- for stickers added locally through the world map's ctrl+click editor
+-- (cfg.localStickerData, same triple format but a chunk id may repeat). Drawn
+-- stacked below the chunk's picker sticker. Rebuilt with the sets above.
+M.localStickers = {}
+
 function M.rebuildGreyChunks()
     local list, set, ids = {}, {}, {}
     for tok in tostring(cfg.unlockedChunkIds):gmatch("[^,%s]+") do
@@ -41,6 +58,42 @@ function M.rebuildGreyChunks()
         end
     end
     M.keepRegions, M.keepSet, M.keepIds = list, set, ids
+
+    local roll = {}
+    for tok in tostring(cfg.rollableChunkIds or ""):gmatch("[^,%s]+") do
+        local id = tonumber(tok)
+        if id and id >= 0 then
+            id = math.floor(id)
+            roll[math.floor(id / CHUNKS_PER_AXIS) .. "," .. (id % CHUNKS_PER_AXIS)] = true
+        end
+    end
+    M.rollableSet = roll
+
+    local stick = {}
+    for tok, typ, col in tostring(cfg.stickerData or ""):gmatch("(%d+):([%w%-_]*):(#%x%x%x%x%x%x)") do
+        local id = tonumber(tok)
+        if id and id >= 0 then
+            local rx, rz = math.floor(id / CHUNKS_PER_AXIS), id % CHUNKS_PER_AXIS
+            stick[rx .. "," .. rz] = { rx = rx, rz = rz, type = typ, color = col }
+        end
+    end
+    M.stickerMap = stick
+
+    local loc = {}
+    for tok, typ, col in tostring(cfg.localStickerData or ""):gmatch("(%d+):([%w%-_]*):(#%x%x%x%x%x%x)") do
+        local id = tonumber(tok)
+        if id and id >= 0 then
+            local rx, rz = math.floor(id / CHUNKS_PER_AXIS), id % CHUNKS_PER_AXIS
+            local key = rx .. "," .. rz
+            local l = loc[key]
+            if not l then
+                l = { rx = rx, rz = rz }
+                loc[key] = l
+            end
+            l[#l + 1] = { type = typ, color = col }
+        end
+    end
+    M.localStickers = loc
 end
 
 -- True if region (prx, prz) falls inside the box whose opposite corners are the

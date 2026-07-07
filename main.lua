@@ -82,7 +82,12 @@ bolt.onrendergameview(render.onRenderGameView)
 -- the world-map library scans 2d batches for the map interface (OCR + tiles)
 bolt.onrender2d(worldmap.onRender2d)
 
-bolt.onmousebutton(input.onMouseButton)
+-- input: ctrl+alt+middle-click chunk unlocking (3D world) and ctrl+left-click
+-- sticker editing (world map); bolt keeps one callback, so fan out here
+bolt.onmousebutton(function(event)
+    input.onMouseButton(event)
+    worldmap.onMouseButton(event)
+end)
 
 -- ---- per-frame loop ----
 local UNITS_PER_TILE        = config.UNITS_PER_TILE

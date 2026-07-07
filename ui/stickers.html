@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: rgba(20, 18, 13, 0.96);
+    --row: rgba(255, 255, 255, 0.03);
+    --line: rgba(255, 200, 90, 0.18);
+    --gold: #ffce5a;
+    --text: #ece5d4;
+    --muted: #a89e86;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    color: var(--text);
+    -webkit-user-select: none; user-select: none;
+  }
+  /* the picker's own FontAwesome webfont, for the icon stickers */
+  @font-face {
+    font-family: "FA6S";
+    font-weight: 900;
+    font-style: normal;
+    src: url("https://source-chunk.github.io/chunk-picker-rs3/resources/fontawesome/webfonts/fa-solid-900.woff2") format("woff2");
+  }
+  #wrap {
+    display: flex; flex-direction: column;
+    height: var(--vh, 100vh);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  }
+  header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(70, 56, 28, 0.95), rgba(40, 33, 19, 0.95));
+    border-bottom: 1px solid var(--line);
+    cursor: move;
+  }
+  header h1 {
+    flex: 1; margin: 0;
+    font-size: 14px; font-weight: 600; letter-spacing: .3px;
+    color: var(--gold);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hbtn {
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    font-size: 12px;
+    padding: 4px 9px;
+    cursor: pointer;
+  }
+  .hbtn:hover { border-color: var(--gold); color: var(--gold); }
+  #close { font-size: 15px; line-height: 1; padding: 4px 8px; }
+
+  #body { flex: 1; overflow-y: auto; padding: 8px 10px 12px; }
+  #body::-webkit-scrollbar { width: 8px; }
+  #body::-webkit-scrollbar-thumb { background: rgba(255, 200, 90, 0.25); }
+
+  .section {
+    margin: 8px 0 4px;
+    font-size: 11px; font-weight: 600; letter-spacing: .4px;
+    color: var(--muted); text-transform: uppercase;
+  }
+
+  /* current stickers on the chunk */
+  .cur {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 6px; margin: 2px 0;
+    background: var(--row);
+  }
+  .cur .nm { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cur .src { font-size: 10px; color: var(--muted); }
+  .cur .rm {
+    border: 1px solid var(--line); background: rgba(0, 0, 0, 0.25);
+    color: var(--text); font-size: 12px; line-height: 1;
+    padding: 2px 7px; cursor: pointer;
+  }
+  .cur .rm:hover { border-color: #ff7a6a; color: #ff7a6a; }
+  .empty { font-size: 12px; color: var(--muted); padding: 2px 6px; }
+
+  /* colour swatches */
+  #colors { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px; }
+  .sw {
+    width: 20px; height: 20px; cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+  }
+  .sw.sel { border-color: var(--gold); }
+
+  /* palette grids */
+  .grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 4px; }
+  .pk {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--row); border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .pk:hover { border-color: var(--gold); }
+  .fa {
+    font-family: "FA6S"; font-weight: 900; font-style: normal;
+    font-size: 16px; line-height: 1;
+  }
+  .txt { font-weight: 700; font-size: 15px; }
+  .pk img, .cur img { width: 18px; height: 18px; }
+  .cur .fa { font-size: 14px; width: 18px; text-align: center; }
+  .cur .txt { font-size: 13px; width: 18px; text-align: center; }
+</style>
+</head>
+<script>
+  // Scale the page content to match the (scaled) browser rectangle.
+  (function () {
+    var s = parseFloat(new URLSearchParams(location.search).get("s"));
+    if (s && s > 0) {
+      document.documentElement.style.zoom = s;
+      document.documentElement.style.setProperty("--vh", (100 / s) + "vh");
+    }
+  })();
+</script>
+<body>
+  <div id="wrap">
+    <header id="drag">
+      <h1 id="title">Stickers</h1>
+      <button class="hbtn" id="close" title="Close">&#10005;</button>
+    </header>
+    <div id="body">
+      <div class="section">On this chunk</div>
+      <div id="current"></div>
+      <div class="section">Colour</div>
+      <div id="colors"></div>
+      <div class="section">Icons</div>
+      <div class="grid" id="g-fa"></div>
+      <div class="section">RS3</div>
+      <div class="grid" id="g-rs3"></div>
+      <div class="section">Numbers</div>
+      <div class="grid" id="g-num"></div>
+      <div class="section">Tiers</div>
+      <div class="grid" id="g-tier"></div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const CHUNK  = params.get("chunk") || "?";
+    const api    = (body) => fetch("https://bolt-api/send-message", { method: "POST", body });
+
+    // The picker's sticker sets (mirrors its stickerChoices* tables; the FA
+    // map holds the FontAwesome 6 Free Solid codepoints its canvas uses).
+    const FA = {"skull":"f54c","skull-crossbones":"f714","bomb":"f1e2","exclamation-circle":"f06a","dice":"f522","poo":"f2fe","frown":"f119","grin-alt":"f581","heart":"f004","star":"f005","gem":"f3a5","award":"f559","crown":"f521","flag":"f024","asterisk":"f069","clock":"f017","hourglass":"f254","link":"f0c1","map-marker-alt":"f3c5","radiation-alt":"f7ba","shoe-prints":"f54b","thumbs-down":"f165","thumbs-up":"f164","crow":"f520","utensil-spoon":"f2e5","lock":"f023","unlock-alt":"f13e","sailboat":"e445","anchor":"f13d","tag":"f02b"};
+    const RS3 = ["attack","constitution","mining","strength","agility","smithing","defence","herblore","fishing","ranged","thieving","cooking","prayer","fletching","firemaking","magic","crafting","woodcutting","runecrafting","slayer","farming","construction","hunter","summoning","dungeoneering","divination","invention","archaeology","necromancy","quest","achievements","minigame","skills","clue"];
+    const NUM = {"zero":"0","one":"1","two":"2","three":"3","four":"4","five":"5","six":"6","seven":"7","eight":"8","nine":"9"};
+    const TIERS = ["S","A","B","C","D","F"];
+    const RS3_URL = (n) => "https://source-chunk.github.io/chunk-picker-rs3/resources/SVG/rs3/" + n + "-rs3.svg";
+    // "tag" is the picker's notes marker, not a pickable sticker
+    const FA_PALETTE = Object.keys(FA).filter((n) => n !== "tag");
+
+    const COLORS = ["#FFFFFF", "#FF0000", "#FF8800", "#FFFF00", "#00FF00",
+                    "#00FFFF", "#0066FF", "#FF66CC", "#AA00FF", "#000000"];
+    let color = COLORS[0];
+
+    function prettyName(type) {
+      return type.split("-alt").join("").split("-").join(" ");
+    }
+
+    // a small rendering of one sticker (shared by the palette and the list)
+    function iconEl(type, col) {
+      if (RS3.includes(type)) {
+        const img = document.createElement("img");
+        img.src = RS3_URL(type);
+        return img;
+      }
+      const sp = document.createElement("span");
+      if (FA[type]) {
+        sp.className = "fa";
+        sp.textContent = String.fromCharCode(parseInt(FA[type], 16));
+      } else {
+        sp.className = "txt";
+        sp.textContent = NUM[type] || (TIERS.includes(type) ? type : "?");
+      }
+      sp.style.color = col;
+      return sp;
+    }
+
+    // ---- current stickers (from Lua state messages) ----
+    const curEl = document.getElementById("current");
+    function renderState(st) {
+      document.getElementById("title").textContent = "Stickers · Chunk " + (st.chunk || CHUNK);
+      curEl.innerHTML = "";
+      if (st.upstream) {
+        const row = document.createElement("div");
+        row.className = "cur";
+        row.appendChild(iconEl(st.upstream.type, st.upstream.color));
+        const nm = document.createElement("span");
+        nm.className = "nm"; nm.textContent = prettyName(st.upstream.type);
+        row.appendChild(nm);
+        const src = document.createElement("span");
+        src.className = "src"; src.textContent = "picker";
+        row.appendChild(src);
+        curEl.appendChild(row);
+      }
+      (st.stickers || []).forEach((s, i) => {
+        const row = document.createElement("div");
+        row.className = "cur";
+        row.appendChild(iconEl(s.type, s.color));
+        const nm = document.createElement("span");
+        nm.className = "nm"; nm.textContent = prettyName(s.type);
+        row.appendChild(nm);
+        const rm = document.createElement("button");
+        rm.className = "rm"; rm.textContent = "×";
+        rm.title = "Remove";
+        rm.addEventListener("click", () => api("remove\n" + (i + 1)));
+        row.appendChild(rm);
+        curEl.appendChild(row);
+      });
+      if (!st.upstream && !(st.stickers || []).length) {
+        const d = document.createElement("div");
+        d.className = "empty"; d.textContent = "No stickers yet. Click one below to add it.";
+        curEl.appendChild(d);
+      }
+    }
+
+    // ---- colour swatches ----
+    const colorsEl = document.getElementById("colors");
+    COLORS.forEach((c) => {
+      const sw = document.createElement("div");
+      sw.className = "sw" + (c === color ? " sel" : "");
+      sw.style.background = c;
+      sw.title = c;
+      sw.addEventListener("click", () => {
+        color = c;
+        colorsEl.querySelectorAll(".sw").forEach((el) => el.classList.toggle("sel", el.title === c));
+        renderPalette();   // retint the tintable palette entries
+      });
+      colorsEl.appendChild(sw);
+    });
+
+    // ---- palette (click to add in the selected colour) ----
+    function fillGrid(id, names) {
+      const g = document.getElementById(id);
+      g.innerHTML = "";
+      for (const n of names) {
+        const b = document.createElement("div");
+        b.className = "pk";
+        b.title = prettyName(n);
+        b.appendChild(iconEl(n, color));
+        b.addEventListener("click", () => api("add\n" + n + "\n" + color));
+        g.appendChild(b);
+      }
+    }
+    function renderPalette() {
+      fillGrid("g-fa", FA_PALETTE);
+      fillGrid("g-rs3", RS3);
+      fillGrid("g-num", Object.keys(NUM));
+      fillGrid("g-tier", TIERS);
+    }
+    renderPalette();
+
+    // Lua pushes the chunk's sticker state on open and after every change
+    window.addEventListener("message", (event) => {
+      if (typeof event.data !== "object" || !event.data) return;
+      if (event.data.type !== "pluginMessage") return;
+      let msg;
+      try { msg = JSON.parse(new TextDecoder().decode(event.data.content)); }
+      catch (err) { return; }
+      if (msg.type === "state") renderState(msg);
+    });
+
+    document.getElementById("close").addEventListener("click", () => {
+      fetch("https://bolt-api/close-request");
+    });
+    document.getElementById("drag").addEventListener("mousedown", (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target.closest(".hbtn")) return;
+      fetch("https://bolt-api/start-reposition?h=0&v=0");
+    });
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderState({ chunk: CHUNK, stickers: [] });
+      api("ready");
+    });
+  </script>
+</body>
+</html>

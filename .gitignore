@@ -1,2 +1,8 @@
 # Release build artifact (uploaded to GitHub Releases, not committed)
 *.tar.gz
+
+# Tools folder
+tools/
+
+# Distribution folder
+dist/
