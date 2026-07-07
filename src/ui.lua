@@ -371,11 +371,12 @@ M.closePopup = closePopup
 -- variant name selects which ui/popups/<name>.* files render the card; the
 -- payload's own `type` field selects the handler within that variant. opts.w /
 -- opts.h give the card's base (unscaled) size, defaulting to POPUP_BASE_W/H;
--- every popup shares the same centred-near-top position.
+-- every popup shares the same centred-near-top position. opts.always shows the
+-- popup even when the showPopups master toggle is off (one-time notices).
 local function openPopup(name, msg, opts)
-    if not cfg.showPopups then return end   -- master toggle: all popups off
-    closePopup()   -- replace any popup still on screen
     opts = opts or {}
+    if not cfg.showPopups and not opts.always then return end   -- master toggle: all popups off
+    closePopup()   -- replace any popup still on screen
     local payload = jsonEncode(msg)
     local s = uiScale()
     local cw = math.floor((opts.w or POPUP_BASE_W) * s)
@@ -417,6 +418,15 @@ end
 -- so it's given a shorter height than the chunk cards.
 function M.showTaskComplete(name)
     openPopup("task", { type = "task", name = name }, { h = 130 })
+end
+
+-- One-time "locked chunks are now greyed on the world map" notice, shown the
+-- first time the world map is opened (see src/worldmap.lua). It bypasses the
+-- showPopups toggle, since its whole job is telling the user this feature and
+-- its setting exist, and the "notice" variant dismisses on click instead of
+-- auto-closing like the celebration cards.
+function M.showMapNotice()
+    openPopup("notice", { type = "notice" }, { h = 210, always = true })
 end
 
 -- build the always-on UI (gear icon + chunk readout)

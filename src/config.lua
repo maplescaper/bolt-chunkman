@@ -47,6 +47,10 @@ M.DEFAULTS = {
     -- chunk ID readout
     showChunkId = true,                                -- show the current chunk ID badge
 
+    -- world map (in-game world map overlay, via the vendored worldmap library)
+    mapGreyLocked = true,                              -- grey out locked chunks on the world map
+    mapNoticeShown = false,                            -- one-time "new feature" notice already shown
+
     -- interface
     uiScale = 1.0,                                     -- scale factor for the on-screen UI (icon, badge, panel, popup)
     panelHeight = 560,                                 -- settings panel height (base/unscaled units; drag its bottom edge)
@@ -94,6 +98,10 @@ M.SCHEMA = {
     { key = "fixedHeight",         type = "int",   group = "Placement",          label = "Fixed height (world Y)", min = -5000, max = 10000, step = 50 },
 
     { key = "showChunkId",         type = "bool",  group = "Chunk ID readout",   label = "Show current chunk ID" },
+
+    { key = "mapGreyLocked",       type = "bool",  group = "World Map",          label = "Grey out locked chunks on the world map" },
+    -- hidden: set true after the one-time world-map notice popup has been shown
+    { key = "mapNoticeShown",      type = "bool",  group = "World Map",          label = "World-map notice shown", hidden = true },
 
     { key = "uiScale",             type = "float", group = "Interface",          label = "UI scale", min = 0.5, max = 3, step = 0.1 },
     { key = "showPopups",          type = "bool",  group = "Interface",          label = "Show popups" },

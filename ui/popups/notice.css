@@ -1,0 +1,38 @@
+/* Gold informational theme for one-time feature notices (structure/animation
+   in popup.html; handling in notice.js). Same palette as the celebration
+   cards (congrats.css/task.css). Unlike those it carries a clickable "Got it"
+   button, so that alone re-enables pointer events (the popup shell disables
+   them page-wide). */
+#card {
+  padding: 18px 34px 20px;
+  border: 1px solid rgba(255, 206, 90, 0.6);
+  background: radial-gradient(circle at 50% 20%, rgba(74, 58, 26, 0.96), rgba(26, 21, 12, 0.97));
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65), 0 0 36px rgba(255, 206, 90, 0.18);
+  color: #ece5d4;
+}
+#title {
+  font-size: 24px; font-weight: 800; line-height: 1.15;
+  background: linear-gradient(180deg, #fff2c8, #ffce5a 60%, #e0a020);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+#sub {
+  margin-top: 8px;
+  font-size: 14px; font-weight: 500; line-height: 1.45;
+  color: #d8cfb5;
+  max-width: 400px;
+}
+#sub b { color: #ffce5a; }
+#ok {
+  pointer-events: auto;   /* the shell sets pointer-events: none page-wide */
+  margin-top: 14px;
+  padding: 7px 26px;
+  font: inherit; font-size: 14px; font-weight: 700;
+  color: #1a150c;
+  background: linear-gradient(180deg, #ffe9a8, #e0a020);
+  border: 1px solid rgba(255, 226, 150, 0.7);
+  border-radius: 0;
+  cursor: pointer;
+}
+#ok:hover { background: linear-gradient(180deg, #fff2c8, #eab040); }

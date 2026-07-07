@@ -15,7 +15,11 @@
 --   render   - the draw passes and the render callbacks
 --   ui       - the embedded browsers (gear icon, settings panel, readout, popup)
 --   input    - ctrl+alt+middle-click to (un)lock a chunk
+--   worldmap - greys locked chunks on the in-game world map (via modules/worldmap)
 --   tasks/   - the Chunk Picker tasks panel (reads the picker's Firebase map)
+--
+-- modules/worldmap/ is the vendored world-map detection library from the World
+-- Map Plugin (see its init.lua for the API); src/worldmap.lua is our consumer.
 --
 -- The line shader (resources/lineshader.*) and its vertex buffer are vendored
 -- verbatim from JasperSurmont's bolt-questhelper (AGPL).
@@ -56,6 +60,7 @@ local shaders  = require("shaders")
 local render   = require("render")
 local ui       = require("ui")
 local input    = require("input")
+local worldmap = require("worldmap")
 
 print("[chunk-man] loaded")
 
@@ -63,6 +68,7 @@ print("[chunk-man] loaded")
 settings.loadSettings()
 chunks.rebuildGreyChunks()
 ui.init()
+worldmap.init()
 
 -- ---- bolt event wiring ----
 bolt.onminimapterrain(function(event)
@@ -72,6 +78,9 @@ end)
 
 bolt.onrender3d(render.onRender3d)
 bolt.onrendergameview(render.onRenderGameView)
+
+-- the world-map library scans 2d batches for the map interface (OCR + tiles)
+bolt.onrender2d(worldmap.onRender2d)
 
 bolt.onmousebutton(input.onMouseButton)
 
@@ -97,6 +106,10 @@ bolt.onswapbuffers(function(event)
 
     -- open any UI deferred out of a browser message callback (avoids a freeze)
     ui.pump()
+
+    -- world-map upkeep + all of its drawing (grey-out of locked chunks);
+    -- pcall-contained inside the library, so a fault never kills the frame
+    worldmap.onSwap()
 
     world.frameCount = world.frameCount + 1
     world.doGroundScan = (world.frameCount % GROUND_REFRESH_FRAMES == 0)
