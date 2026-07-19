@@ -251,7 +251,13 @@ function M.onRender3d(event)
     -- draw call). We still re-capture at least once each frame (the frame check),
     -- and the last distinct camera wins, which is the main view, exactly as before.
     -- Animated passes share the same camera, so skip them outright.
+    if cfg.writeDiag then world.calls3d = world.calls3d + 1 end
     if event:animated() then return end
+    if cfg.writeDiag then
+        world.callsNonAnim = world.callsNonAnim + 1
+        local dvc = event:vertexcount()
+        if dvc > world.maxVertexCount then world.maxVertexCount = dvc end
+    end
     local cx, cy, cz = event:cameraposition()
     if world.frameCount ~= capFrame or cx ~= capX or cy ~= capY or cz ~= capZ then
         world.viewproj = event:viewprojmatrix()
@@ -282,6 +288,7 @@ end
 
 function M.onRenderGameView(event)
     world.lastWinW, world.lastWinH = bolt.gamewindowsize()
+    if cfg.writeDiag then world.callsGameView = world.callsGameView + 1 end
     if not (world.viewproj and world.haveMM) then return end
 
     local prx, prz = world.playerRegion()

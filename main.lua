@@ -142,6 +142,12 @@ bolt.onswapbuffers(function(event)
             local ptz = haveMM and math.floor(world.mmZ / UNITS_PER_TILE)
             bolt.saveconfig("diag.txt", table.concat({
                 "shader_ok=" .. tostring(shaders.line ~= nil),
+                "shader_fill=" .. tostring(shaders.fill ~= nil),
+                "shader_grey=" .. tostring(shaders.grey ~= nil),
+                "keeptex=" .. tostring(shaders.keepTex ~= nil),
+                "viewproj_ok=" .. tostring(world.viewproj ~= nil),
+                "hooks_3d=" .. world.calls3d .. ",nonanim=" .. world.callsNonAnim .. ",maxvc=" .. world.maxVertexCount,
+                "hooks_gameview=" .. world.callsGameView,
                 "player_tile=" .. (haveMM and string.format("%d,%d", ptx, ptz) or "nil"),
                 "player_region=" .. (haveMM and string.format("%d,%d", math.floor(ptx / TILES_PER_REGION), math.floor(ptz / TILES_PER_REGION)) or "nil"),
                 "overworld=" .. (haveMM and tostring(chunks.isOverworld(math.floor(ptx / TILES_PER_REGION), math.floor(ptz / TILES_PER_REGION))) or "nil"),

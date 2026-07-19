@@ -27,6 +27,12 @@ M.frameCount = 0
 M.doGroundScan = true
 M.terrainScannedThisFrame = false
 
+-- diagnostic counters, only advanced while cfg.writeDiag is on: how often each
+-- render hook fires, and the largest non-animated 3D pass seen. These tell
+-- "hook never fires" apart from "hook fires but no pass ever qualifies".
+M.calls3d, M.callsNonAnim, M.callsGameView = 0, 0, 0
+M.maxVertexCount = 0
+
 M.lastWinW, M.lastWinH = 0, 0                  -- most recent game window size (for centering popups)
 
 -- placement height for the flat overlays: pinned, or the detected ground

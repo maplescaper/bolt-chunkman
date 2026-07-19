@@ -1,6 +1,6 @@
 {
   "name": "Chunk Man Plugin",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Chunk Man mode plugin for RuneScape 3 which greys out locked chunks (in the 3D world and on the world map), and integrates with your existing Chunk Picker map.",
   "main": "main.lua"
 }
