@@ -10,6 +10,11 @@
 // discontinuities), the world point is re-projected with its x (or z) snapped
 // onto the nearest boundary plane; the screen-space distance between the two
 // projections is the pixel distance to that boundary.
+//
+// Terrain-only mode estimates the surface normal at line pixels by
+// reconstructing the world position of neighbouring pixels and suppresses the
+// line on steep surfaces (walls, trunks, fences). It is a slope test, not a
+// true terrain test: flat roofs and bridge decks still count as "terrain".
 in highp vec4 vScreenPos;
 layout(location=1)  uniform highp vec4 uGridColor;     // boundary line colour (alpha = line opacity)
 layout(location=2)  uniform highp vec4 uCurrentColor;  // current-region boundary colour (alpha = line opacity)
@@ -20,6 +25,7 @@ layout(location=12) uniform highp vec4 uWindow;        // grid extent in region 
 layout(location=13) uniform highp vec2 uPlayerRegion;  // (rx, rz) the player stands in
 layout(location=14) uniform highp vec2 uLine;          // x: half thickness (px); y: outline extra (px, 0 = off)
 layout(location=15) uniform highp vec2 uViewport;      // game view size (px)
+layout(location=16) uniform highp vec2 uTerrain;       // x: 1 = terrain-only on; y: min normal.y = cos(max slope)
 out highp vec4 fragColor;
 
 // world units per region edge = UNITS_PER_TILE(512) * TILES_PER_REGION(64)
@@ -31,6 +37,50 @@ highp float boundaryDistPx(highp vec4 p0, highp vec3 snapped) {
   highp vec4 h = uViewproj * vec4(snapped, 1.0);
   if (h.w < 1e-6) { return 1e9; }
   return length((h.xy / h.w - p0.xy / p0.w) * 0.5 * uViewport);
+}
+
+// reconstruct the world position of the pixel at depth-buffer uv (ok = false
+// for sky / degenerate pixels, whose position is meaningless)
+highp vec3 worldAtUV(highp vec2 uv, out bool ok) {
+  highp float d = texture(uDepthBuffer, uv).r;
+  highp vec3 ndc = vec3(uv * 2.0 - 1.0, d * 2.0 - 1.0);
+  highp vec4 wh = uInvViewproj * vec4(ndc, 1.0);
+  ok = d < 0.9999 && abs(wh.w) > 1e-6;
+  return ok ? wh.xyz / wh.w : vec3(0.0);
+}
+
+// pick the screen-space tangent along one screen axis: of the two neighbours
+// (one each side of the centre pixel), use the one whose world point is closer
+// to the centre, so a depth discontinuity on one side (an object silhouette)
+// doesn't corrupt the normal. ok = false if both sides are unusable.
+highp vec3 tangentAxis(highp vec3 centre, highp vec2 uv, highp vec2 step, out bool ok) {
+  bool okA, okB;
+  highp vec3 wA = worldAtUV(uv + step, okA);
+  highp vec3 wB = worldAtUV(uv - step, okB);
+  ok = okA || okB;
+  if (okA && okB) {
+    highp vec3 dA = wA - centre;
+    highp vec3 dB = centre - wB;
+    return dot(dA, dA) <= dot(dB, dB) ? dA : dB;
+  }
+  return okA ? (wA - centre) : (centre - wB);
+}
+
+// 0..1 factor for how "terrain-like" the surface under this pixel is: 1 on
+// flat-enough ground, 0 on surfaces steeper than the configured max slope,
+// with a small smoothstep band between so the cutoff doesn't shimmer
+highp float terrainFactor(highp vec3 centre, highp vec2 uv) {
+  bool okX, okY;
+  highp vec3 tx = tangentAxis(centre, uv, vec2(1.0 / uViewport.x, 0.0), okX);
+  highp vec3 ty = tangentAxis(centre, uv, vec2(0.0, 1.0 / uViewport.y), okY);
+  if (!okX || !okY) { return 0.0; }   // neighbours are sky: isolated sliver, not ground
+  highp vec3 n = cross(tx, ty);
+  highp float len = length(n);
+  if (len < 1e-9) { return 0.0; }
+  // abs: winding/flip conventions don't matter, only how far from horizontal-
+  // facing the surface is
+  highp float ny = abs(n.y) / len;
+  return smoothstep(uTerrain.y - 0.06, min(uTerrain.y + 0.06, 1.0), ny);
 }
 
 void main() {
@@ -68,6 +118,17 @@ void main() {
 
   bool hitX = dx <= uLine.x;
   bool hitZ = dz <= uLine.x;
+  bool hitOutline = min(dx, dz) <= uLine.x + uLine.y;
+  if (!hitX && !hitZ && !hitOutline) { fragColor = vec4(0.0); return; }
+
+  // terrain-only: fade the line out on steep surfaces (walls, trunks). Only
+  // evaluated for pixels that would actually be painted, so the extra depth
+  // samples cost nothing along the rest of the boundary window.
+  highp float t = 1.0;
+  if (uTerrain.x > 0.5) {
+    t = terrainFactor(world, uv);
+    if (t <= 0.0) { fragColor = vec4(0.0); return; }
+  }
 
   // a boundary is drawn in the current-region colour where it forms the border
   // of the region the player stands in (matching the old cyan box overlay)
@@ -78,13 +139,11 @@ void main() {
                     && cell.x == uPlayerRegion.x;
 
   if (cyanX || cyanZ) {
-    fragColor = uCurrentColor;
+    fragColor = vec4(uCurrentColor.rgb, uCurrentColor.a * t);
   } else if (hitX || hitZ) {
-    fragColor = uGridColor;
-  } else if (min(dx, dz) <= uLine.x + uLine.y) {
-    // black outline ring for contrast, fading in step with the line opacity
-    fragColor = vec4(0.0, 0.0, 0.0, 0.6 * uGridColor.a);
+    fragColor = vec4(uGridColor.rgb, uGridColor.a * t);
   } else {
-    fragColor = vec4(0.0);
+    // black outline ring for contrast, fading in step with the line opacity
+    fragColor = vec4(0.0, 0.0, 0.0, 0.6 * uGridColor.a * t);
   }
 }

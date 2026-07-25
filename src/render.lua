@@ -125,6 +125,10 @@ local function drawRegionGrid(event, prx, prz)
     -- 1px each side matches the old outline pass's thickness+2)
     grid:setuniform2f(14, cfg.lineThickness / 2, cfg.blackOutline and 1 or 0)
     grid:setuniform2f(15, sw, sh)
+    -- terrain-only: hide lines on surfaces steeper than the configured slope
+    -- (the shader compares the reconstructed normal's y against this cosine)
+    grid:setuniform2f(16, cfg.terrainOnly and 1 or 0,
+        math.cos(math.rad(cfg.terrainMaxSlope)))
     grid:drawtogameview(event, shaders.fillBuffer, 6)
 end
 

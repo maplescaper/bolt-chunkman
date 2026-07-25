@@ -38,6 +38,8 @@ M.DEFAULTS = {
     currentRegionColour = { r = 0, g = 1, b = 1 },     -- cyan: the region you're in
     lineThickness = 3,
     lineOpacity = 1.0,                                 -- 0 = invisible, 1 = solid (outline fades with it)
+    terrainOnly = false,                               -- skip lines on steep surfaces (walls, trees); flat roofs still count as terrain
+    terrainMaxSlope = 45,                              -- degrees from horizontal a surface may tilt and still get lines
     blackOutline = true,                               -- dark underlay for contrast
 
     -- placement: the ground-plane height used by ctrl+alt+middle-click chunk
@@ -98,6 +100,8 @@ M.SCHEMA = {
     { key = "currentRegionColour", type = "rgb",   group = "Region grid lines",  label = "Current-region colour" },
     { key = "lineThickness",       type = "float", group = "Region grid lines",  label = "Line thickness", min = 1, max = 12, step = 0.5 },
     { key = "lineOpacity",         type = "float", group = "Region grid lines",  label = "Line opacity", min = 0, max = 1, step = 0.05 },
+    { key = "terrainOnly",         type = "bool",  group = "Region grid lines",  label = "Terrain only (skip walls and objects)" },
+    { key = "terrainMaxSlope",     type = "int",   group = "Region grid lines",  label = "Terrain max slope (degrees)", min = 5, max = 85, step = 5 },
     { key = "blackOutline",        type = "bool",  group = "Region grid lines",  label = "Black outline for contrast" },
 
     { key = "useFixedHeight",      type = "bool",  group = "Placement",          label = "Pin click-picking to a fixed height" },
