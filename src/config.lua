@@ -32,15 +32,15 @@ M.DEFAULTS = {
     lockedColour = { r = 0, g = 0, b = 0, a = 0.75 },  -- grey-out colour + opacity
 
     -- region boundary lines
-    showRegionLines = false,                           -- draw the region boundary grid
+    showRegionLines = false,                            -- draw the region boundary grid
     regionRadius = 1,                                  -- regions out from yours (1 => 3x3)
-    regionColour = { r = 1, g = 0.4, b = 0 },          -- orange region edges
-    currentRegionColour = { r = 0, g = 1, b = 1 },     -- cyan: the region you're in
+    regionColour = { r = 0.051, g = 0.051, b = 0.051 },        -- #0d0d0d: near-black region edges
+    currentRegionColour = { r = 0.741, g = 0.859, b = 0.859 }, -- #bddbdb: pale cyan, the region you're in
     lineThickness = 3,
-    lineOpacity = 1.0,                                 -- 0 = invisible, 1 = solid (outline fades with it)
+    lineOpacity = 0.4,                                 -- 0 = invisible, 1 = solid (outline fades with it)
     terrainOnly = false,                               -- skip lines on steep surfaces (walls, trees); flat roofs still count as terrain
-    terrainMaxSlope = 45,                              -- degrees from horizontal a surface may tilt and still get lines
-    blackOutline = true,                               -- dark underlay for contrast
+    terrainMaxSlope = 25,                              -- degrees from horizontal a surface may tilt and still get lines
+    blackOutline = false,                              -- dark underlay for contrast
 
     -- placement: the ground-plane height used by ctrl+alt+middle-click chunk
     -- picking (the grey-out and region grid are per-pixel and need no height):

@@ -7,7 +7,7 @@ you unlock new chunks with a single click (`Ctrl + Alt + middle-click`).
 
 Bolt Launcher Install URL, see the [Installation](#installation) section below as well for how to use the URL and first use info:
 ```
-https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
+https://github.com/maplescaper/bolt-chunkman/releases/download/latest/meta.json
 ```
 
 <video src="https://codeberg.org/maplescaper/bolt-chunkman/media/branch/main/images/chunkman-gif.webm" controls width="100%"></video>
@@ -20,16 +20,14 @@ https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.jso
 
 - **Region / chunk grid overlay**: draws the RuneScape map-square grid (64×64 tiles per
   region) on the ground around you.
-- **Grey out locked chunks**: everything outside your list of unlocked chunks is walled
-  off along the frontier of your unlocked area. Contiguous unlocked
-  chunks stay fully clear inside; only the outer perimeter is darkened.
+- **Grey out locked chunks**: everything outside your list of unlocked chunks is greyed
+  out per-pixel, so the boundary follows the terrain exactly. Unlocked chunks stay
+  fully clear.
 - **Click to unlock**: `Ctrl + Alt + middle-click` any chunk on the ground to toggle it
   in or out of your unlocked list. Unlocking a new chunk pops a celebratory card:
 
   ![Chunk unlocked popup](images/chunkman_plugin_unlocked_popup.png)
 
-- **Locked-view dimming**: if you wander into a chunk you haven't unlocked, the whole view
-  dims so it's obvious you've stepped out of bounds.
 - **World map integration**: the in-game world map shows the chunk grid and chunk-ID
   labels, greys out every locked chunk, draws a green outline around the outside of
   your unlocked area, and allows you to add additional stickers to your chunks. The grey-out
@@ -97,30 +95,31 @@ saved to `chunkman-settings.cfg` in the plugin's config directory.
 
 | Group | Setting | Description |
 | --- | --- | --- |
-| **Unlocked Chunks** | Grey out locked chunks | Wall off everything except your unlocked chunks. |
+| **Unlocked Chunks** | Grey out locked chunks | Grey out everything except your unlocked chunks. |
 | | Unlocked chunk IDs | Comma-separated list of chunk IDs, e.g. `13108, 13109`. |
-| | Pixel-perfect grey-out (off = curtain walls) | Use the new mode that is decoupled from the camera for greying out locked chunks. |
-| | Grey out the sky (pixel-perfect mode) | Grey out the sky (pixel-perfect mode). |
+| | Grey out the sky | Grey the sky along with locked chunks. |
 | | Enable overworld detection | If enabled, the plugin will attempt to detect if you are in the overworld or dungeon. |
 | | Overworld box corner chunk ID (SW) | Minimum chunk number from southwestern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Overworld box corner chunk ID (NE) | Maximum chunk number from northeastern-most chunk (for detecting overworld vs dungeons, etc.). |
 | | Ctrl+Alt+middle-click to unlock/lock | Toggle a chunk by clicking it on the ground. |
-| | Show the "chunk unlocked" popup | Toggle to disable/enable the chunk unlock popup when you unlock a new one. |
-| | Dim the view when in a locked chunk | Tint the whole screen when you're out of bounds. |
-| | Locked-chunk colour & opacity | Curtain / dim colour and strength. |
-| | Locked-chunk wall height | How far the curtains rise toward the sky (world units). |
+| | Locked-chunk colour & opacity | Grey-out colour and strength. |
 | **Chunk Picker** | Chunk Picker map ID | The map ID from the Chunk Picker map you're using, case-sensitive (e.g. `abc`). |
+| | Resolve task names (downloads task list) | Download the Chunk Picker task list. |
 | **Region grid lines** | Show region boundary lines | Draw the chunk grid. |
 | | Region radius | How many rings of regions to draw around you (1 → 3×3). |
 | | Grid line colour | Colour of the boundary lines. |
 | | Current-region colour | Colour of the region you're standing in. |
 | | Line thickness | Boundary line thickness. |
+| | Line opacity | Line transparency, from 0 (invisible) to 1 (solid). |
+| | Terrain only (skip walls and objects) | Only draw lines on the ground: surfaces steeper than the max slope (walls, trees, fences) are skipped. |
+| | Terrain max slope (degrees) | How steep a surface can be and still get lines in terrain-only mode. |
 | | Black outline for contrast | Dark underlay so lines stay readable. |
-| **Placement** | Pin overlay to a fixed height | Use a fixed world Y instead of detected ground. |
-| | Fixed height | The world Y to pin the overlay to. |
+| **Placement** | Pin click-picking to a fixed height | Use a fixed world Y for `Ctrl + Alt + middle-click` picking instead of detected ground. |
+| | Fixed height | The world Y to pin click-picking to. |
 | **Chunk ID readout** | Show current chunk ID | Show/hide the chunk ID badge. |
 | **World Map** | Grey out locked chunks on the world map | Grey locked chunks and outline your unlocked area on the in-game world map. The chunk grid and chunk-ID labels stay on either way. Also requires "Grey out locked chunks" to be enabled. |
 | **Interface** | UI scale | Scale the on-screen UI (icon, badge, panel, popup). |
+| | Show popups | Enable/disable the celebration popups (chunk unlocked/complete, task complete). |
 | **Diagnostics** | Write diag.txt | Periodically dump diagnostics for troubleshooting. |
 
 ## Chunks
@@ -199,7 +198,3 @@ The updater URL above points at a GitHub release asset. To cut a release:
 4. Create a release tagged `<version>` and upload **both** `bolt-chunkman-<version>.tar.gz`
    and `meta.json` as assets. The `meta.json` URL of that release is the updater URL users install.
 
-
-## Credits
-
-The line shader and vertex buffer are from [JasperSurmont's bolt-questhelper](https://codeberg.org/JasperSurmont/bolt-questhelper).
