@@ -7,7 +7,7 @@ you unlock new chunks with a single click (`Ctrl + Alt + middle-click`).
 
 Bolt Launcher Install URL, see the [Installation](#installation) section below as well for how to use the URL and first use info:
 ```
-https://github.com/maplescaper/bolt-chunkman/releases/download/latest/meta.json
+https://github.com/maplescaper/bolt-chunkman/releases/latest/download/meta.json
 ```
 
 <video src="https://codeberg.org/maplescaper/bolt-chunkman/media/branch/main/images/chunkman-gif.webm" controls width="100%"></video>
