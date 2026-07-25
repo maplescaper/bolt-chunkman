@@ -13,41 +13,9 @@ local shaders  = require("shaders")
 
 local cfg              = settings.cfg
 local unpack           = util.unpack
-local UNITS_PER_TILE   = config.UNITS_PER_TILE
-local TILES_PER_REGION = config.TILES_PER_REGION
-local GRID_STEP_TILES  = config.GRID_STEP_TILES
 local GROUND_MAX_SAMPLES = config.GROUND_MAX_SAMPLES
 
 local M = {}
-
--- ---- line geometry helpers ----
-
--- add a world-space segment to the list if both ends are in front of the camera
-local function addSeg(lines, x0, y, z0, x1, z1, col)
-    if world.inFront(x0, y, z0) and world.inFront(x1, y, z1) then
-        lines[#lines + 1] = {
-            x0 = x0, y0 = y, z0 = z0, x1 = x1, y1 = y, z1 = z1,
-            r = col.r, g = col.g, b = col.b, a = 1.0,
-        }
-    end
-end
-
--- add a boundary line (constant tileX or constant tileZ), subdivided per step
-local function addBoundary(lines, constX, fixedTile, t0, t1, y, col)
-    local prev
-    for t = t0, t1, GRID_STEP_TILES do
-        if prev then
-            if constX then
-                addSeg(lines, fixedTile * UNITS_PER_TILE, y, prev * UNITS_PER_TILE,
-                    fixedTile * UNITS_PER_TILE, t * UNITS_PER_TILE, col)
-            else
-                addSeg(lines, prev * UNITS_PER_TILE, y, fixedTile * UNITS_PER_TILE,
-                    t * UNITS_PER_TILE, fixedTile * UNITS_PER_TILE, col)
-            end
-        end
-        prev = t
-    end
-end
 
 -- ---- GPU grey-out: per-pixel by reconstructed world position ----
 -- One full-screen pass. The fragment shader reconstructs each pixel's world
@@ -127,41 +95,37 @@ local function drawGreyReconstruct(event, prx, prz)
     grey:drawtogameview(event, shaders.fillBuffer, 6)
 end
 
--- ---- GPU line batch ----
-local function drawLines(event, lines)
-    local shader = shaders.line
-    if not shader or #lines == 0 then return end
+-- ---- region boundary grid: per-pixel by reconstructed world position ----
+-- Same method as the grey-out: one full-screen pass whose fragment shader
+-- reconstructs each pixel's world position from the depth buffer and paints it
+-- where it lies within the line thickness of a region boundary. The lines
+-- therefore hug the terrain exactly (climbing over hills, following dips)
+-- instead of sitting on a flat plane at a guessed height, and they are
+-- inherently depth-correct with no geometry to build or clip. The current
+-- region's border is painted in its own colour by the shader.
+local function drawRegionGrid(event, prx, prz)
+    local grid = shaders.grid
+    if not grid or cfg.lineOpacity <= 0 then return end
+    local inv = invViewproj()
+    if not inv then return end
+
     local sw, sh = bolt.gamewindowsize()
-    shader:setuniformmatrix4f(3, false, world.viewproj:get())
-    shader:setuniform2f(6, sw, sh)
-    shader:setuniform1f(10, 0)
-    shader:setuniform1f(11, 0)   -- no pulses
-    shader:setuniform1f(12, 0)
-    shader:setuniform1f(13, 0)   -- no rainbow
-    shader:setuniformdepthbuffer(14, event)
-    shader:setuniform2f(15, sw, sh)
-    shader:setuniform1f(16, 0)   -- no rounded caps
-
-    -- Per-pass-constant uniforms (thickness, the constant flags, and the colour
-    -- when the outline pass forces black) are set once here rather than per
-    -- segment; only the endpoints (and the per-line colour) change in the loop.
-    local function batch(extra, forceBlack)
-        local th = cfg.lineThickness + extra
-        shader:setuniform1f(4, th / 2.0)
-        shader:setuniform1f(9, th / 2.0)
-        shader:setuniform1f(7, 0)
-        shader:setuniform1f(8, 1)
-        if forceBlack then shader:setuniform4f(5, 0, 0, 0, 0.6) end
-        for _, ln in ipairs(lines) do
-            shader:setuniform3f(1, ln.x0, ln.y0, ln.z0)
-            shader:setuniform3f(2, ln.x1, ln.y1, ln.z1)
-            if not forceBlack then shader:setuniform4f(5, ln.r, ln.g, ln.b, ln.a) end
-            shader:drawtogameview(event, shaders.lineBuffer, 6)
-        end
-    end
-
-    if cfg.blackOutline then batch(2, true) end
-    batch(0, false)
+    local r = cfg.regionRadius
+    local gc, cc, a = cfg.regionColour, cfg.currentRegionColour, cfg.lineOpacity
+    grid:setuniform4f(1, gc.r, gc.g, gc.b, a)
+    grid:setuniform4f(2, cc.r, cc.g, cc.b, a)
+    grid:setuniformmatrix4f(3, false, unpack(inv))
+    grid:setuniformdepthbuffer(7, event)
+    grid:setuniformmatrix4f(8, false, world.viewproj:get())
+    -- grid window in region coords, mirroring the old geometry's extent:
+    -- boundaries rx in [prx-r, prx+r+1] over the same span of z, and vice versa
+    grid:setuniform4f(12, prx - r, prz - r, prx + r + 1, prz + r + 1)
+    grid:setuniform2f(13, prx, prz)
+    -- half thickness in px, plus the black-outline ring width (0 disables it;
+    -- 1px each side matches the old outline pass's thickness+2)
+    grid:setuniform2f(14, cfg.lineThickness / 2, cfg.blackOutline and 1 or 0)
+    grid:setuniform2f(15, sw, sh)
+    grid:drawtogameview(event, shaders.fillBuffer, 6)
 end
 
 -- ---- render callbacks ----
@@ -202,10 +166,9 @@ function M.onRender3d(event)
     end
 
     if cfg.useFixedHeight then return end
-    -- the grey-out reconstructs height per-pixel and never reads world.groundY;
-    -- only the region lines need the scan, so skip the per-frame terrain
-    -- sampling when they're off.
-    if not cfg.showRegionLines then return end
+    -- the grey-out and the region grid reconstruct height per-pixel and never
+    -- read world.groundY; only click-picking (input.lua) still needs a plane
+    -- height, so the terrain scan only runs when that height isn't pinned.
     if not world.doGroundScan or world.terrainScannedThisFrame or not world.haveMM then return end
     local vc = event:vertexcount()
     if vc < 1000 then return end
@@ -236,34 +199,10 @@ function M.onRenderGameView(event)
         drawGreyReconstruct(event, prx, prz)
     end
 
-    -- region boundary lines (orange grid + cyan current region). These sit on a
-    -- flat plane, so they still need a placement height.
+    -- region boundary lines (orange grid + cyan current region), painted by the
+    -- same per-pixel reconstruction pass as the grey-out (no placement height)
     if cfg.showRegionLines then
-        local y = world.gridHeight()
-        if y then
-            local txMin = (prx - cfg.regionRadius) * TILES_PER_REGION
-            local txMax = (prx + cfg.regionRadius + 1) * TILES_PER_REGION
-            local tzMin = (prz - cfg.regionRadius) * TILES_PER_REGION
-            local tzMax = (prz + cfg.regionRadius + 1) * TILES_PER_REGION
-
-            local lines = {}
-            for rx = prx - cfg.regionRadius, prx + cfg.regionRadius + 1 do
-                addBoundary(lines, true, rx * TILES_PER_REGION, tzMin, tzMax, y, cfg.regionColour)
-            end
-            for rz = prz - cfg.regionRadius, prz + cfg.regionRadius + 1 do
-                addBoundary(lines, false, rz * TILES_PER_REGION, txMin, txMax, y, cfg.regionColour)
-            end
-
-            -- highlight the region the player is in
-            local x0, x1 = prx * TILES_PER_REGION, (prx + 1) * TILES_PER_REGION
-            local z0, z1 = prz * TILES_PER_REGION, (prz + 1) * TILES_PER_REGION
-            addBoundary(lines, true, x0, z0, z1, y, cfg.currentRegionColour)
-            addBoundary(lines, true, x1, z0, z1, y, cfg.currentRegionColour)
-            addBoundary(lines, false, z0, x0, x1, y, cfg.currentRegionColour)
-            addBoundary(lines, false, z1, x0, x1, y, cfg.currentRegionColour)
-
-            drawLines(event, lines)
-        end
+        drawRegionGrid(event, prx, prz)
     end
 end
 

@@ -3,29 +3,15 @@
 -- pcall so a failure prints and leaves that field nil (the renderer skips a
 -- pass whose shader is missing).
 --
---   line  : boundary segments, expanded to thickness in screen space and
---           depth-occluded by terrain. Shader + buffer vendored verbatim from
---           JasperSurmont's bolt-questhelper (AGPL).
---   grey  : full-screen pass that reconstructs each pixel's world position from
---           the depth buffer and greys it by the chunk it belongs to. Draws a
---           unit-square quad (fillBuffer).
+-- Both passes reconstruct each pixel's world position from the depth buffer
+-- (full-screen quad, greyshader.vert) and differ only in the fragment stage:
+--   grey  : greys the pixel by the chunk it belongs to (locked-chunk grey-out)
+--   grid  : paints the pixel where it lies on a region boundary (grid lines)
 
 local bolt   = require("bolt")
 local config = require("config")
 
 local M = {}
-
--- ---- line shader ----
-do
-    local ok, err = pcall(function()
-        local vs = bolt.createvertexshader(bolt.loadfile("resources/lineshader.vert"))
-        local fs = bolt.createfragmentshader(bolt.loadfile("resources/lineshader.frag"))
-        M.line = bolt.createshaderprogram(vs, fs)
-        M.line:setattribute(0, 1, true, false, 2, 0, 2)
-        M.lineBuffer = bolt.createshaderbuffer("\xFF\x00\x01\x00\x01\x01\xFF\x00\x01\x01\xFF\x01")
-    end)
-    if not ok then print("[chunk-man] shader init failed: " .. tostring(err)) end
-end
 
 -- ---- grey shader (per-pixel world-position grey-out of locked chunks) ----
 do
@@ -38,6 +24,17 @@ do
         M.fillBuffer = bolt.createshaderbuffer("\x00\x00\x01\x00\x01\x01\x00\x00\x01\x01\x00\x01")
     end)
     if not ok then print("[chunk-man] grey shader init failed: " .. tostring(err)) end
+end
+
+-- ---- grid shader (per-pixel world-position region boundary lines) ----
+do
+    local ok, err = pcall(function()
+        local vs = bolt.createvertexshader(bolt.loadfile("resources/greyshader.vert"))
+        local fs = bolt.createfragmentshader(bolt.loadfile("resources/gridshader.frag"))
+        M.grid = bolt.createshaderprogram(vs, fs)
+        M.grid:setattribute(0, 1, true, false, 2, 0, 2)
+    end)
+    if not ok then print("[chunk-man] grid shader init failed: " .. tostring(err)) end
 end
 
 -- ---- keep lookup texture (one texel per chunk: opaque => unlocked) ----

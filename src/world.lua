@@ -7,7 +7,6 @@
 -- Read/write through this module table (e.g. world.viewproj), since the fields
 -- are reassigned every frame.
 
-local bolt     = require("bolt")
 local settings = require("settings")
 local config   = require("config")
 
@@ -35,17 +34,11 @@ M.maxVertexCount = 0
 
 M.lastWinW, M.lastWinH = 0, 0                  -- most recent game window size (for centering popups)
 
--- placement height for the flat overlays: pinned, or the detected ground
+-- height of the click-picking ground plane: pinned, or the detected ground
 function M.gridHeight()
     if cfg.useFixedHeight then return cfg.fixedHeight end
     if M.haveGroundY then return M.groundY end
     return nil
-end
-
--- is a world-units point in front of the camera (and thus drawable)?
-function M.inFront(x, y, z)
-    local _, _, sd = bolt.point(x, y, z):transform(M.viewproj):aspixels()
-    return sd and sd >= 0.0 and sd <= 1.0
 end
 
 -- the region (rx, rz) the player currently stands in, from the minimap position

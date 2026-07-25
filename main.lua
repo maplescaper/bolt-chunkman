@@ -11,7 +11,7 @@
 --   settings - the live config, (de)serialisation, persistence, per-character files
 --   chunks   - the unlocked-chunk set and overworld detection
 --   world    - shared per-frame state (camera, player pos, ground, window) + helpers
---   shaders  - the line / fill / grey GPU shader programs
+--   shaders  - the grey / grid GPU shader programs
 --   render   - the draw passes and the render callbacks
 --   ui       - the embedded browsers (gear icon, settings panel, readout, popup)
 --   input    - ctrl+alt+middle-click to (un)lock a chunk
@@ -20,9 +20,6 @@
 --
 -- modules/worldmap/ is the vendored world-map detection library from the World
 -- Map Plugin (see its init.lua for the API); src/worldmap.lua is our consumer.
---
--- The line shader (resources/lineshader.*) and its vertex buffer are vendored
--- verbatim from JasperSurmont's bolt-questhelper (AGPL).
 
 local bolt = require("bolt")
 bolt.checkversion(1, 0)
@@ -141,8 +138,8 @@ bolt.onswapbuffers(function(event)
             local ptx = haveMM and math.floor(world.mmX / UNITS_PER_TILE)
             local ptz = haveMM and math.floor(world.mmZ / UNITS_PER_TILE)
             bolt.saveconfig("diag.txt", table.concat({
-                "shader_ok=" .. tostring(shaders.line ~= nil),
                 "shader_grey=" .. tostring(shaders.grey ~= nil),
+                "shader_grid=" .. tostring(shaders.grid ~= nil),
                 "keeptex=" .. tostring(shaders.keepTex ~= nil),
                 "viewproj_ok=" .. tostring(world.viewproj ~= nil),
                 "hooks_3d=" .. world.calls3d .. ",nonanim=" .. world.callsNonAnim .. ",maxvc=" .. world.maxVertexCount,

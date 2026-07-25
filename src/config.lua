@@ -8,7 +8,6 @@ local M = {}
 M.UNITS_PER_TILE = 512
 M.TILES_PER_REGION = 64
 M.CHUNKS_PER_AXIS = 256       -- chunk ID = regionX * 256 + regionZ
-M.GRID_STEP_TILES = 8         -- boundary subdivision (for clipping behind camera)
 M.GREY_GRID_RADIUS = 4        -- pixel-perfect grey-out only covers a (2r+1)x(2r+1) grid of regions centered on the player (4 => 9x9); chunks further out are left untouched
 M.GROUND_REFRESH_FRAMES = 30
 M.GROUND_MAX_SAMPLES = 200
@@ -38,9 +37,12 @@ M.DEFAULTS = {
     regionColour = { r = 1, g = 0.4, b = 0 },          -- orange region edges
     currentRegionColour = { r = 0, g = 1, b = 1 },     -- cyan: the region you're in
     lineThickness = 3,
+    lineOpacity = 1.0,                                 -- 0 = invisible, 1 = solid (outline fades with it)
     blackOutline = true,                               -- dark underlay for contrast
 
-    -- placement: pin the overlay to a fixed height, else use detected ground
+    -- placement: the ground-plane height used by ctrl+alt+middle-click chunk
+    -- picking (the grey-out and region grid are per-pixel and need no height):
+    -- pinned to a fixed value, else use the detected ground under the player
     useFixedHeight = true,
     fixedHeight = 0,                                   -- world units Y
 
@@ -95,9 +97,10 @@ M.SCHEMA = {
     { key = "regionColour",        type = "rgb",   group = "Region grid lines",  label = "Grid line colour" },
     { key = "currentRegionColour", type = "rgb",   group = "Region grid lines",  label = "Current-region colour" },
     { key = "lineThickness",       type = "float", group = "Region grid lines",  label = "Line thickness", min = 1, max = 12, step = 0.5 },
+    { key = "lineOpacity",         type = "float", group = "Region grid lines",  label = "Line opacity", min = 0, max = 1, step = 0.05 },
     { key = "blackOutline",        type = "bool",  group = "Region grid lines",  label = "Black outline for contrast" },
 
-    { key = "useFixedHeight",      type = "bool",  group = "Placement",          label = "Pin overlay to a fixed height" },
+    { key = "useFixedHeight",      type = "bool",  group = "Placement",          label = "Pin click-picking to a fixed height" },
     { key = "fixedHeight",         type = "int",   group = "Placement",          label = "Fixed height (world Y)", min = -5000, max = 10000, step = 50 },
 
     { key = "showChunkId",         type = "bool",  group = "Chunk ID readout",   label = "Show current chunk ID" },
