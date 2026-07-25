@@ -49,14 +49,14 @@ local function addBoundary(lines, constX, fixedTile, t0, t1, y, col)
     end
 end
 
--- ---- GPU grey-out mode A: per-pixel by reconstructed world position ----
+-- ---- GPU grey-out: per-pixel by reconstructed world position ----
 -- One full-screen pass. The fragment shader reconstructs each pixel's world
 -- position from the depth buffer (using the inverse camera matrix), works out
 -- which chunk it lies in, and greys it unless that chunk is unlocked. Because
 -- every pixel is judged by where it actually is, the grey boundary follows the
 -- terrain exactly and never floats or drifts with the camera. Still runs with
 -- zero chunks unlocked: the keep texture is then all-empty, so every pixel
--- greys, giving the same effect as the whole-view dim used by curtain mode.
+-- greys, dimming the whole view.
 -- The "is this chunk unlocked?" test is a single texelFetch into a 256x256 keep
 -- texture (shaders.keepTex), so it is O(1) per pixel with no cap on the unlock
 -- count.
@@ -125,70 +125,6 @@ local function drawGreyReconstruct(event, prx, prz)
     grey:setuniformmatrix4f(3, false, unpack(inv))
     grey:setuniformdepthbuffer(7, event)
     grey:drawtogameview(event, shaders.fillBuffer, 6)
-end
-
--- ---- GPU grey-out mode B: vertical curtains along chunk frontiers (original) ----
--- The shared uniforms (camera, height range, colour, depth) are set once per
--- frame via beginWalls; drawWallSeg then raises a single curtain along one
--- ground edge. drawGreyCurtains uses these to wall off the frontier of the
--- unlocked area. This is the original approach: a vertical wall is projected per
--- chunk edge and the depth buffer darkens whatever lies behind it. Kept as a
--- selectable mode (cfg.reconstructGrey = false); its edges can float/drift over
--- undulating terrain, which is exactly why mode A exists.
-local function beginWalls(event, y)
-    local fill = shaders.fill
-    local sw, sh = bolt.gamewindowsize()
-    fill:setuniformmatrix4f(3, false, world.viewproj:get())
-    fill:setuniform2f(2, y, y + cfg.lockedWallHeight)
-    fill:setuniform4f(4, cfg.lockedColour.r, cfg.lockedColour.g, cfg.lockedColour.b, cfg.lockedColour.a)
-    fill:setuniformdepthbuffer(5, event)
-    fill:setuniform2f(6, sw, sh)
-end
-
--- one curtain along a ground base-line {x0,z0 -> x1,z1}, raised by the shader
-local function drawWallSeg(event, x0, z0, x1, z1)
-    shaders.fill:setuniform4f(1, x0, z0, x1, z1)
-    shaders.fill:drawtogameview(event, shaders.fillBuffer, 6)
-end
-
--- grey out the whole world EXCEPT the listed chunks: the listed chunks are the
--- "unlocked" ones. We wall off only the frontier, each edge of an unlocked
--- chunk that borders a chunk NOT in the list. Edges shared by two unlocked
--- chunks stay open, so a contiguous unlocked area is fully clear inside and
--- curtained at its perimeter. If nothing is unlocked there are no frontiers and
--- this draws nothing. The whole-view dim (below) covers that case instead.
-local function drawGreyCurtains(event, y)
-    local keepRegions, keepSet = chunks.keepRegions, chunks.keepSet
-    if not shaders.fill or #keepRegions == 0 then return end
-    beginWalls(event, y)
-    local U = UNITS_PER_TILE * TILES_PER_REGION
-    for _, rg in ipairs(keepRegions) do
-        local rx, rz = rg.rx, rg.rz
-        local x0, z0 = rx * U, rz * U
-        local x1, z1 = x0 + U, z0 + U
-        if not keepSet[(rx - 1) .. "," .. rz] then drawWallSeg(event, x0, z1, x0, z0) end  -- min-x frontier
-        if not keepSet[(rx + 1) .. "," .. rz] then drawWallSeg(event, x1, z0, x1, z1) end  -- max-x frontier
-        if not keepSet[rx .. "," .. (rz - 1)] then drawWallSeg(event, x0, z0, x1, z0) end  -- min-z frontier
-        if not keepSet[rx .. "," .. (rz + 1)] then drawWallSeg(event, x1, z1, x0, z1) end  -- max-z frontier
-    end
-end
-
--- ---- full-screen dim (when standing in a locked chunk) ----
--- Reuses the curtain fill shader to paint one screen-filling quad. We feed it
--- an identity matrix and place the quad at the near plane (NDC z = -1) so its
--- depth-occlusion test can never discard, and so the whole game view is tinted
--- by uColor with the shader's normal alpha blend (black + alpha => darken).
-local function drawLockedViewDim(event)
-    local fill = shaders.fill
-    if not fill then return end
-    local sw, sh = bolt.gamewindowsize()
-    fill:setuniformmatrix4f(3, false, 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1)
-    fill:setuniform4f(1, -1, -1, 1, -1)   -- uBase: x spans -1..1, z fixed at -1 (near)
-    fill:setuniform2f(2, -1, 1)           -- uYrange: y spans -1..1
-    fill:setuniform4f(4, cfg.lockedColour.r, cfg.lockedColour.g, cfg.lockedColour.b, cfg.lockedColour.a)
-    fill:setuniformdepthbuffer(5, event)
-    fill:setuniform2f(6, sw, sh)
-    fill:drawtogameview(event, shaders.fillBuffer, 6)
 end
 
 -- ---- GPU line batch ----
@@ -266,10 +202,10 @@ function M.onRender3d(event)
     end
 
     if cfg.useFixedHeight then return end
-    -- mode A (pixel-perfect grey) reconstructs height per-pixel and never reads
-    -- world.groundY; only curtain mode and the region lines need the scan, so skip
-    -- the per-frame terrain sampling when neither is in play.
-    if cfg.reconstructGrey and not cfg.showRegionLines then return end
+    -- the grey-out reconstructs height per-pixel and never reads world.groundY;
+    -- only the region lines need the scan, so skip the per-frame terrain
+    -- sampling when they're off.
+    if not cfg.showRegionLines then return end
     if not world.doGroundScan or world.terrainScannedThisFrame or not world.haveMM then return end
     local vc = event:vertexcount()
     if vc < 1000 then return end
@@ -293,25 +229,11 @@ function M.onRenderGameView(event)
 
     local prx, prz = world.playerRegion()
 
-    -- grey out everything except the hand-picked "unlocked" chunks. Two modes:
-    -- A (reconstructGrey) greys per-pixel by reconstructed world position (no
-    -- placement height needed); B is the original projected curtain walls (needs
-    -- a flat height). Skipped entirely outside the overworld (e.g. dungeons).
+    -- grey out everything except the hand-picked "unlocked" chunks, per-pixel
+    -- by reconstructed world position (no placement height needed). Skipped
+    -- entirely outside the overworld (e.g. dungeons).
     if cfg.greyLocked and chunks.isOverworld(prx, prz) then
-        if cfg.reconstructGrey then
-            drawGreyReconstruct(event, prx, prz)
-        else
-            local y = world.gridHeight()
-            if y then drawGreyCurtains(event, y) end
-            -- Curtain mode only greys chunk frontiers, so standing inside a locked
-            -- chunk shows no grey. Dim the whole camera view to signal it. (With
-            -- nothing unlocked, every chunk is locked, so this dims the world.)
-            -- Pixel-perfect mode greys the locked chunk you're standing in
-            -- per-pixel, so it needs no separate dim.
-            if cfg.dimLockedView and not chunks.keepSet[prx .. "," .. prz] then
-                drawLockedViewDim(event)
-            end
-        end
+        drawGreyReconstruct(event, prx, prz)
     end
 
     -- region boundary lines (orange grid + cyan current region). These sit on a

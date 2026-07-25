@@ -111,11 +111,12 @@ end
 
 -- legacy config keys -> current keys, so older saved files still load. The
 -- old write (greyOutside) was dropped; the rest were renamed to lock/unlock.
+-- Keys with no current equivalent (e.g. the removed curtain-mode settings) fall
+-- through applySet's schema lookup and are silently ignored.
 local LEGACY_KEYS = {
-    greyChunks     = "greyLocked",
-    greyChunkIds   = "unlockedChunkIds",
-    greyColour     = "lockedColour",
-    greyWallHeight = "lockedWallHeight",
+    greyChunks   = "greyLocked",
+    greyChunkIds = "unlockedChunkIds",
+    greyColour   = "lockedColour",
 }
 
 local function applySettingsData(data)

@@ -142,7 +142,6 @@ bolt.onswapbuffers(function(event)
             local ptz = haveMM and math.floor(world.mmZ / UNITS_PER_TILE)
             bolt.saveconfig("diag.txt", table.concat({
                 "shader_ok=" .. tostring(shaders.line ~= nil),
-                "shader_fill=" .. tostring(shaders.fill ~= nil),
                 "shader_grey=" .. tostring(shaders.grey ~= nil),
                 "keeptex=" .. tostring(shaders.keepTex ~= nil),
                 "viewproj_ok=" .. tostring(world.viewproj ~= nil),
