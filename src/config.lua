@@ -29,6 +29,7 @@ M.DEFAULTS = {
     localStickerData = "",                             -- comma-separated "id:type:#rrggbb" triples added locally via ctrl+click on the world map (may repeat a chunk id)
     clickUnlock = true,                                -- ctrl+alt+middle-click a chunk to toggle it
     showPopups = true,                                 -- master toggle for all celebration popups (chunk unlocked/complete, task complete)
+    showUpdateNotice = false,                           -- startup "switch your update URL to GitHub" notice; hidden, hand-edit to false to suppress (read pre-login, so set it in the shared legacy file)
     lockedColour = { r = 0, g = 0, b = 0, a = 0.75 },  -- grey-out colour + opacity
 
     -- region boundary lines
@@ -115,6 +116,8 @@ M.SCHEMA = {
 
     { key = "uiScale",             type = "float", group = "Interface",          label = "UI scale", min = 0.5, max = 3, step = 0.1 },
     { key = "showPopups",          type = "bool",  group = "Interface",          label = "Show popups" },
+    -- hidden: suppresses the every-startup update-URL notice (the popup's OK button never touches this, only a hand edit does)
+    { key = "showUpdateNotice",    type = "bool",  group = "Interface",          label = "Show update-URL notice on startup", hidden = true },
     -- hidden: persisted UI state, set by dragging each panel's bottom edge (not shown as a form row)
     { key = "panelHeight",         type = "int",   group = "Interface",          label = "Settings panel height", hidden = true, min = 220, max = 1400, step = 1 },
     { key = "tasksHeight",         type = "int",   group = "Interface",          label = "Tasks panel height",    hidden = true, min = 220, max = 1400, step = 1 },

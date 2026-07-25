@@ -92,6 +92,13 @@ local TILES_PER_REGION      = config.TILES_PER_REGION
 local GROUND_REFRESH_FRAMES = config.GROUND_REFRESH_FRAMES
 local snap = 0
 
+-- Startup update-URL notice: shown once per session, a moment after the game
+-- window is up (so the centred popup lands correctly), while the hidden
+-- cfg.showUpdateNotice toggle is true. The popup's OK button only closes it,
+-- so it reappears every startup until the toggle is hand-edited to false.
+local updateNoticeShown = false
+local updateNoticeDelay = 0
+
 bolt.onswapbuffers(function(event)
     -- Once a character is logged in, switch to that character's settings file and
     -- (re)load it, so settings are kept per-account instead of shared.
@@ -122,6 +129,14 @@ bolt.onswapbuffers(function(event)
     -- even if onrendergameview hasn't run recently
     local okw, w, h = pcall(bolt.gamewindowsize)
     if okw and w and w > 0 and h and h > 0 then world.lastWinW, world.lastWinH = w, h end
+
+    if not updateNoticeShown and world.lastWinW > 0 then
+        updateNoticeDelay = updateNoticeDelay + 1
+        if updateNoticeDelay >= 60 then   -- roughly a second after the window is sized
+            updateNoticeShown = true
+            if settings.cfg.showUpdateNotice then ui.showUpdateNotice() end
+        end
+    end
 
     -- update the chunk ID badge (cheap: only sends when the value changes)
     if world.haveMM then

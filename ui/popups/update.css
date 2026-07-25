@@ -1,0 +1,59 @@
+/* Gold informational theme for the startup update-URL notice (structure and
+   animation in popup.html; handling in update.js). Same palette as notice.css,
+   plus a monospace URL box and a two-button row. Buttons re-enable pointer
+   events themselves (the popup shell disables them page-wide). */
+#card {
+  padding: 18px 34px 20px;
+  border: 1px solid rgba(255, 206, 90, 0.6);
+  background: radial-gradient(circle at 50% 20%, rgba(74, 58, 26, 0.96), rgba(26, 21, 12, 0.97));
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65), 0 0 36px rgba(255, 206, 90, 0.18);
+  color: #ece5d4;
+}
+#title {
+  font-size: 24px; font-weight: 800; line-height: 1.15;
+  background: linear-gradient(180deg, #fff2c8, #ffce5a 60%, #e0a020);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+#sub {
+  margin-top: 8px;
+  font-size: 14px; font-weight: 500; line-height: 1.45;
+  color: #d8cfb5;
+  max-width: 400px;
+}
+#sub b { color: #ffce5a; }
+#url {
+  margin: 12px auto 0;
+  padding: 7px 12px;
+  max-width: 380px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: #ffe9a8;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 206, 90, 0.35);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#buttons {
+  margin-top: 14px;
+  display: flex; justify-content: center; gap: 12px;
+}
+#buttons button {
+  pointer-events: auto;   /* the shell sets pointer-events: none page-wide */
+  padding: 7px 26px;
+  font: inherit; font-size: 14px; font-weight: 700;
+  border-radius: 0;
+  cursor: pointer;
+}
+#copy {
+  color: #ffe9a8;
+  background: rgba(255, 206, 90, 0.12);
+  border: 1px solid rgba(255, 206, 90, 0.55);
+}
+#copy:hover { background: rgba(255, 206, 90, 0.24); }
+#ok {
+  color: #1a150c;
+  background: linear-gradient(180deg, #ffe9a8, #e0a020);
+  border: 1px solid rgba(255, 226, 150, 0.7);
+}
+#ok:hover { background: linear-gradient(180deg, #fff2c8, #eab040); }

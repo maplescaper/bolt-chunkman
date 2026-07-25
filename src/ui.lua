@@ -429,6 +429,16 @@ function M.showMapNotice()
     openPopup("notice", { type = "notice" }, { h = 210, always = true })
 end
 
+-- Every-startup "switch your plugin update URL to GitHub" notice (shown from
+-- main.lua once the window is up, while the hidden cfg.showUpdateNotice toggle
+-- is true). Bypasses the showPopups master toggle like the map notice, and its
+-- OK button only closes the card, it never writes the toggle.
+function M.showUpdateNotice()
+    -- the card measures ~470px wide (sub text + URL box), so widen the browser
+    -- rect past the 460 default to keep its edges from clipping
+    openPopup("update", { type = "update" }, { w = 510, h = 270, always = true })
+end
+
 -- build the always-on UI (gear icon + chunk readout)
 function M.init()
     createIconBrowser()
