@@ -10,7 +10,7 @@ Bolt Launcher Install URL, see the [Installation](#installation) section below a
 https://github.com/maplescaper/bolt-chunkman/releases/latest/download/meta.json
 ```
 
-<video src="https://codeberg.org/maplescaper/bolt-chunkman/media/branch/main/images/chunkman-gif.webm" controls width="100%"></video>
+<video src="https://github.com/maplescaper/bolt-chunkman/raw/refs/heads/main/images/chunkman-gif.webm" controls width="100%"></video>
 > Use `Ctrl + Alt + middle-click` to unlock/lock chunks.
 > If the video above doesn't play inline, [download / open `chunkman-gif.webm`](images/chunkman-gif.webm).
 
@@ -55,7 +55,7 @@ play button to add the plugin.
 4. Select the `From URL` option, paste this install URL into the text box and then
 hit the green checkmark to load it in:
 ```
-https://codeberg.org/maplescaper/bolt-chunkman/releases/download/latest/meta.json
+https://github.com/maplescaper/bolt-chunkman/releases/latest/download/meta.json
 ```
 
 5. You should now see the `Chunk Man Plugin` in the list of loaded plugins. Before it can be used, you need to enable it for the account that will be using it.
@@ -167,6 +167,25 @@ these are the following:
 
 It seems to be possible to add/subtract the difference between the S/W chunk IDs to map from the chunk picker to the plugin.
 
+## Migrating from Codeberg to Github
+
+To migrate from Codeberg to Github, do the following:
+
+1. Close any Runescape clients opened from Bolt.
+2. Go to the `Plugin Menu` in the Bolt launcher.
+3. Navigate to `Manage Plugins` and select the `Chunk Man Plugin`.
+4. Click on the `Config` button. This will open the folder that the plugin config is stored in.
+![Migration Config Button](images/chunkman_migration_config.png)
+
+5. The plugin config is stored in `.../bolt-launcher/config/plugins/<PLUGIN-ID>/`. Go up two folders to the `config` folder to find a `plugins.json` file.
+6. Close the Bolt launcher since there's potential that it will overwrite the following changes.
+6. Open the file in any editor (e.g. notepad), and search for an entry that looks like this for the `Chunk Man Plugin`
+![Plugins File Example](images/chunkman_migration_plugins_file.png)
+
+7. Replace the highlighted URL with this URL: `https://github.com/maplescaper/bolt-chunkman/releases/latest/download/meta.json`
+8. Save the file changes.
+9. Open the Bolt launcher again, go to the plugin menu, and there should be a new update available if it's been configured correctly.
+
 ## Manual Installation
 
 If the installation instructions above don't work for some reason, you can also install it manually:
@@ -198,3 +217,11 @@ The updater URL above points at a GitHub release asset. To cut a release:
 4. Create a release tagged `<version>` and upload **both** `bolt-chunkman-<version>.tar.gz`
    and `meta.json` as assets. The `meta.json` URL of that release is the updater URL users install.
 
+## Development
+
+This project was built with the help of AI. As such, PRs made with AI tooling are accepted.
+There are no specific coding guidelines but ensure that comments explain code if the code
+is complex, or explain why something is done in a certain way. A commit summary is required
+with any PRs being submitted, and commit messages should also follow the existing format
+used in the repository. Any new UI elements should (as best as possible) use the generic
+popup tooling to keep the code cleaner and make it easy for the popups to be globally disabled.
